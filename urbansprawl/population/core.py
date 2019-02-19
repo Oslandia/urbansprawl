@@ -1,7 +1,7 @@
-###################################################################################################
+###############
 # Repository: https://github.com/lgervasoni/urbansprawl
 # MIT License
-###################################################################################################
+###############
 
 from .data_extract import get_extract_population_data
 from .downscaling import proportional_population_downscaling

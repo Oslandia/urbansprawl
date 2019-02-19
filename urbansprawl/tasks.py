@@ -18,7 +18,6 @@ luigid
 and then by running the previous command without the `--local-scheduler`
 option. The task dependency graph and some miscellaneous information about the
 tasks are visible at `localhost:8082` URL address.
-
 """
 
 from configparser import ConfigParser
@@ -26,6 +25,7 @@ from datetime import date, datetime as dt
 import json
 import os
 import requests
+import sys
 import zipfile
 
 import geopandas as gpd
@@ -76,7 +76,6 @@ config = ConfigParser()
 if os.path.isfile("config.ini"):
     config.read("config.ini")
 else:
-    logger.error("No file config.ini!")
     sys.exit(1)
 
 
@@ -294,7 +293,7 @@ class GetData(luigi.Task):
             columns_to_drop = [
                 col
                 for col in list(gdf.columns)
-                if not col in COLUMNS_OF_INTEREST_POIS
+                if col not in COLUMNS_OF_INTEREST_POIS
             ]
             gdf.drop(columns_to_drop, axis=1, inplace=True)
             gdf["osm_id"] = gdf.index
@@ -308,7 +307,7 @@ class GetData(luigi.Task):
             columns_to_drop = [
                 col
                 for col in list(gdf.columns)
-                if not col in COLUMNS_OF_INTEREST_LANDUSES
+                if col not in COLUMNS_OF_INTEREST_LANDUSES
             ]
             gdf.drop(columns_to_drop, axis=1, inplace=True)
             gdf.reset_index(drop=True, inplace=True)
@@ -394,7 +393,7 @@ class SanityCheck(luigi.Task):
             [c for c in HEIGHT_TAGS if c in gdf.columns]
         ].apply(lambda x: remove_nan_dict(x.to_dict()), axis=1)
         columns_to_drop = [
-            col for col in list(gdf.columns) if not col in COLUMNS_OF_INTEREST
+            col for col in list(gdf.columns) if col not in COLUMNS_OF_INTEREST
         ]
         gdf.drop(columns_to_drop, axis=1, inplace=True)
         gdf["osm_id"] = gdf.index
@@ -575,7 +574,7 @@ class SetupProjection(luigi.Task):
 
     def run(self):
         gdf = gpd.read_file(self.input().path)
-        ### Project to UTM coordinates within the same zone
+        # Project to UTM coordinates within the same zone
         gdf = osmnx.project_gdf(gdf)
         if self.table == "buildings":
             gdf.drop(
@@ -779,7 +778,8 @@ class ComputeLandUse(luigi.Task):
             pois.activity_category.apply(lambda x: len(x) == 0),
             "activity_category",
         ] = np.nan
-        # Set the composed classification given, for each building, its containing Points of Interest and building parts classification
+        # Set the composed classification given, for each building,
+        # its containing Points of Interest and building parts classification
         buildings.loc[
             buildings.apply(
                 lambda x: x.landuses_m2["activity"] > 0
@@ -1079,7 +1079,7 @@ class PlotLandUseMix(luigi.Task):
         grid_land_use = gpd.read_file(self.input()["grid"].path)
         valid_features = grid_land_use.columns.tolist()
         valid_features.remove("geometry")
-        if not self.plotted_feature in valid_features:
+        if self.plotted_feature not in valid_features:
             raise ValueError(
                 "Choose a valid feature to plot amongst" f" {valid_features}"
             )
@@ -1548,7 +1548,8 @@ class GetINSEEData(luigi.Task):
 
     @property
     def url(self):
-        return "https://www.insee.fr/fr/statistiques/fichier/2520034/200m-carreaux-metropole.zip"
+        return ("https://www.insee.fr/fr/statistiques" +
+                "/fichier/2520034/200m-carreaux-metropole.zip")
 
     def output(self):
         return luigi.LocalTarget(self.path, format=MixedUnicodeBytes)
@@ -1566,7 +1567,9 @@ class GetGPWData(luigi.Task):
 
     GPW data access:
 
-    http://sedac.ciesin.columbia.edu/downloads/data/gpw-v4/gpw-v4-population-count-rev10/gpw-v4-population-count-rev10_2015_30_sec_tif.zip
+    http://sedac.ciesin.columbia.edu\
+    /downloads/data/gpw-v4/gpw-v4-population-count-rev10\
+    /gpw-v4-population-count-rev10_2015_30_sec_tif.zip
 
     Attributes
     ----------
@@ -1586,7 +1589,9 @@ class GetGPWData(luigi.Task):
 
     @property
     def url(self):
-        return "http://sedac.ciesin.columbia.edu/downloads/data/gpw-v4/gpw-v4-population-count-rev10/gpw-v4-population-count-rev10_2015_30_sec_tif.zip"
+        return ("http://sedac.ciesin.columbia.edu" +
+                "/downloads/data/gpw-v4/gpw-v4-population-count-rev10" +
+                "/gpw-v4-population-count-rev10_2015_30_sec_tif.zip")
 
     def output(self):
         return luigi.LocalTarget(self.path, format=MixedUnicodeBytes)
@@ -1674,7 +1679,7 @@ class StoreINSEEGridAsShapefile(luigi.Task):
     datapath = luigi.Parameter("./data")
 
     def requires(self):
-        return UnzipINSEEData(self.datapath)
+        return UnzipData(self.datapath, "insee")
 
     def output(self):
         filepath = os.path.join(
@@ -1728,7 +1733,7 @@ class ExtractLocalINSEEData(luigi.Task):
 
     def requires(self):
         return {
-            "data": UnzipINSEEData(self.datapath),
+            "data": UnzipData(self.datapath, "insee"),
             "grid": StoreINSEEGridAsShapefile(self.datapath),
             "buildings": ComputeLandUse(
                 self.city,
@@ -1893,7 +1898,10 @@ class ExtractLocalGPWData(luigi.Task):
 class VectorizeLocalGPWData(luigi.Task):
     """Transform local GPW data as a geojson file in order to process the data
 
-    See GDAL documentation at https://pcjericks.github.io/py-gdalogr-cookbook/raster_layers.html#polygonize-a-raster-band
+    See GDAL documentation at:
+
+    https://pcjericks.github.io/py-gdalogr-cookbook/\
+    raster_layers.html#polygonize-a-raster-band
 
     Attributes
     ----------
@@ -2131,8 +2139,6 @@ class ComputePopulationFeatures(luigi.Task):
     def run(self):
         buildings = gpd.read_file(self.input()["buildings"].path)
         pois = gpd.read_file(self.input()["pois"].path)
-        landuse_mix = gpd.read_file(self.input()["landuse"].path)
-        dispersion = gpd.read_file(self.input()["dispersion"].path)
         insee_pop = gpd.read_file(self.input()["insee"].path)
         proj_path = os.path.join(
             self.datapath, self.city, "utm_projection.json"
@@ -2380,8 +2386,8 @@ class TrainPopulationDownscalingModel(luigi.Task):
         for k in hist.history.keys():
             if "mean_absolute_error" not in k:
                 continue
-            l = "Validation error" if "val" in k else "Training error"
-            ax.plot(hist.history[k], label=l)
+            label = "Validation error" if "val" in k else "Training error"
+            ax.plot(hist.history[k], label=label)
         ax.legend(loc="upper right")
         fig.tight_layout()
         fig.savefig(self.output().path.replace(".h5", ".png"))

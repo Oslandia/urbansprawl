@@ -1,9 +1,9 @@
-###################################################################################################
+###############
 # Repository: https://github.com/lgervasoni/urbansprawl
 # MIT License
-###################################################################################################
+###############
 
-from shapely.geometry import Polygon, GeometryCollection
+from shapely.geometry import GeometryCollection
 import geopandas as gpd
 import pandas as pd
 import os
@@ -17,29 +17,29 @@ from .utils import get_population_extract_filename
 DATA_SOURCES = ["insee", "gpw"]
 
 ##############################
-### I/O for population data
+# I/O for population data
 ##############################
 
 
 def get_df_extract(df_data, poly_gdf, operation="within"):
     """
-	Indexes input geo-data frame within an input region of interest
-	If the region of interest is given as a polygon, its bounding box is indexed
+        Indexes input geo-data frame within an input region of interest
+        If the region of interest is given as a polygon, its bounding box is indexed
 
-	Parameters
-	----------
-	df_data : geopandas.GeoDataFrame
-		input data frame to index
-	poly_gdf : geopandas.GeoDataFrame
-		geodataframe containing the region of interest in form of polygon
-	operation : string
-		the desired spatial join operation: 'within' or 'intersects'
+        Parameters
+        ----------
+        df_data : geopandas.GeoDataFrame
+                input data frame to index
+        poly_gdf : geopandas.GeoDataFrame
+                geodataframe containing the region of interest in form of polygon
+        operation : string
+                the desired spatial join operation: 'within' or 'intersects'
 
-	Returns
-	----------
-	geopandas.GeoDataFrame
-		returns the population data frame indexed within the region of interest
-	"""
+        Returns
+        ----------
+        geopandas.GeoDataFrame
+                returns the population data frame indexed within the region of interest
+        """
     # Project to same system coordinates
     poly_gdf = ox.project_gdf(poly_gdf, to_crs=df_data.crs)
     # Spatial join
@@ -53,41 +53,41 @@ def get_population_df(
     pop_shapefile, pop_data_file, data_source, to_crs, poly_gdf
 ):
     """
-	Read the population shapefile from input filename/s
-	Index the data within the bounding box
-	Project to desired CRS
+        Read the population shapefile from input filename/s
+        Index the data within the bounding box
+        Project to desired CRS
 
-	Parameters
-	----------
-	pop_shapefile : string
-		population count shapefile
-	pop_data_file : string
-		population data additional file (required for INSEE format)
-	data_source : string
-		desired population data source
-	to_crs : dict
-		desired coordinate reference system
-	poly_gdf : geopandas.GeoDataFrame
-		geodataframe containing the region of interest in form of polygon
+        Parameters
+        ----------
+        pop_shapefile : string
+                population count shapefile
+        pop_data_file : string
+                population data additional file (required for INSEE format)
+        data_source : string
+                desired population data source
+        to_crs : dict
+                desired coordinate reference system
+        poly_gdf : geopandas.GeoDataFrame
+                geodataframe containing the region of interest in form of polygon
 
-	Returns
-	----------
-	geopandas.GeoDataFrame
-		returns the indexed and projected population data frame
-	"""
+        Returns
+        ----------
+        geopandas.GeoDataFrame
+                returns the indexed and projected population data frame
+        """
     #######################################
-    ### Load GPW/INSEE population data
+    # Load GPW/INSEE population data
     #######################################
     # Read population data
     df_pop = gpd.read_file(pop_shapefile)
 
-    ### Extract region of interest (EPSG 4326)
+    # Extract region of interest (EPSG 4326)
     # Filter geometries not contained in bounding box
     df_pop = get_df_extract(df_pop, poly_gdf)
 
     if data_source is "insee":
         #######################################
-        ### Additional step for INSEE data
+        # Additional step for INSEE data
         #######################################
         # Read dbf files
         data_pop = gpd.read_file(pop_data_file)
@@ -113,32 +113,38 @@ def get_extract_population_data(
     to_crs={"init": "epsg:4326"},
     polygons_gdf=None,
 ):
-    """
-	Get data population extract of desired data source for input city, calculating the convex hull of input buildings geodataframe
-	The population data frame is projected to the desired coordinate reference system
-	Stores the extracted shapefile
-	Returns the stored population data for input 'data source' and 'city reference' if it was previously stored
+    """Get data population extract of desired data source for input city,
+    calculating the convex hull of input buildings geodataframe
 
-	Parameters
-	----------
-	city_ref : string
-		name of input city
-	data_source : string
-		desired population data source
-	pop_shapefile : string
-		path of population count shapefile
-	pop_data_file : string
-		path of population data additional file (required for INSEE format)
-	to_crs : dict
-		desired coordinate reference system
-	polygons_gdf : geopandas.GeoDataFrame
-		polygons (e.g. buildings) for input region of interest which will determine the shape to extract
+    The population data frame is projected to the desired coordinate reference
+    system
 
-	Returns
-	----------
-	geopandas.GeoDataFrame
-		returns the extracted population data
-	"""
+    Stores the extracted shapefile
+
+    Returns the stored population data for input 'data source' and 'city
+    reference' if it was previously stored
+
+        Parameters
+        ----------
+        city_ref : string
+                name of input city
+        data_source : string
+                desired population data source
+        pop_shapefile : string
+                path of population count shapefile
+        pop_data_file : string
+                path of population data additional file (required for INSEE format)
+        to_crs : dict
+                desired coordinate reference system
+        polygons_gdf : geopandas.GeoDataFrame
+                polygons (e.g. buildings) for input region of interest which
+        will determine the shape to extract
+
+        Returns
+        ----------
+        geopandas.GeoDataFrame
+                returns the extracted population data
+        """
     # Input data source type given?
     assert data_source in DATA_SOURCES
 
@@ -152,7 +158,7 @@ def get_extract_population_data(
         # Input shape given?
     assert not (np.all(polygons_gdf is None))
     # Input population shapefile given?
-    assert not pop_shapefile is None
+    assert pop_shapefile is not None
     # All input files given?
     assert not ((data_source == "insee") and (pop_data_file is None))
 

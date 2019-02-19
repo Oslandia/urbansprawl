@@ -1,7 +1,7 @@
-###################################################################################################
+###############
 # Repository: https://github.com/lgervasoni/urbansprawl
 # MIT License
-###################################################################################################
+###############
 
 import geopandas as gpd
 import pandas as pd
@@ -22,8 +22,6 @@ from .utils import (
     get_population_urban_features_filename,
     get_population_training_validating_filename,
 )
-
-from .data_extract import get_extract_population_data
 
 # Sprawl indices
 from ..sprawl.dispersion import compute_grid_dispersion
@@ -53,28 +51,28 @@ def compute_full_urban_features(
     kwargs={"max_dispersion": 15},
 ):
     """
-	Computes a set of urban features for each square where population count data exists
+        Computes a set of urban features for each square where population count data exists
 
-	Parameters
-	----------
-	city_ref : string
-		city reference name
-	df_osm_built : geopandas.GeoDataFrame
-		input buildings
-	df_osm_pois : geopandas.GeoDataFrame
-		input points of interest
-	df_insee : geopandas.GeoDataFrame
-		grid-cells with population count where urban features will be calculated
-	data_source : str
-		define the type of population data for its retrieval in case it was stored
-	kwargs : dict
-		keyword arguments to guide the process
+        Parameters
+        ----------
+        city_ref : string
+                city reference name
+        df_osm_built : geopandas.GeoDataFrame
+                input buildings
+        df_osm_pois : geopandas.GeoDataFrame
+                input points of interest
+        df_insee : geopandas.GeoDataFrame
+                grid-cells with population count where urban features will be calculated
+        data_source : str
+                define the type of population data for its retrieval in case it was stored
+        kwargs : dict
+                keyword arguments to guide the process
 
-	Returns
-	----------
-	geopandas.GeoDataFrame
-		geometry with updated urban features
-	"""
+        Returns
+        ----------
+        geopandas.GeoDataFrame
+                geometry with updated urban features
+        """
 
     # Population extract exists?
     if os.path.exists(
@@ -92,9 +90,9 @@ def compute_full_urban_features(
         return ox.project_gdf(df_insee_urban_features_4326)
 
         # Required arguments
-    assert not df_osm_built is None
-    assert not df_osm_pois is None
-    assert not df_insee is None
+    assert df_osm_built is not None
+    assert df_osm_pois is not None
+    assert df_insee is not None
 
     # Get population count data with filled empty squares (null population)
     df_insee_urban_features = get_population_df_filled_empty_squares(df_insee)
@@ -103,7 +101,7 @@ def compute_full_urban_features(
     df_insee_urban_features.crs = crs_proj
 
     ##################
-    ### Urban features
+    # Urban features
     ##################
     # Compute the urban features for each square
     log("Calculating urban features")
@@ -141,9 +139,10 @@ def compute_full_urban_features(
         null_idx
     ) * [0]
 
-    ### Pre-calculation of urban features
+    # Pre-calculation of urban features
 
-    # Apply percentage of building presence within square: 1 if fully contained, 0.5 if half the building contained, ...
+    # Apply percentage of building presence within square:
+    # 1 if fully contained, 0.5 if half the building contained, ...
     df_insee_urban_features["building_ratio"] = df_insee_urban_features.apply(
         lambda x: x.geom_building.intersection(x.geometry).area
         / x.geom_building.area,
@@ -222,7 +221,7 @@ def compute_full_urban_features(
         lambda x: x.geom_building.area * x.building_ratio, axis=1
     )
 
-    ### Urban features aggregation functions
+    # Urban features aggregation functions
     urban_features_aggregation = {}
     urban_features_aggregation["idINSPIRE"] = lambda x: x.head(1)
     urban_features_aggregation["pop_count"] = lambda x: x.head(1)
@@ -279,7 +278,7 @@ def compute_full_urban_features(
     )
 
     ##################
-    ### Sprawling indices
+    # Sprawling indices
     ##################
     df_insee_urban_features[
         "geometry_squares"
@@ -287,10 +286,6 @@ def compute_full_urban_features(
     df_insee_urban_features[
         "geometry"
     ] = df_insee_urban_features.geometry.centroid
-
-    """
-	compute_grid_accessibility(df_insee_urban_features, graph, df_osm_built, df_osm_pois)
-	"""
 
     # Compute land uses mix + densities estimation
     compute_grid_landusemix(
@@ -337,25 +332,25 @@ def compute_full_urban_features(
 
 def get_training_testing_data(city_ref, df_insee_urban_features=None):
     """
-	Returns the Y and X arrays for training/testing population downscaling estimates.
+        Returns the Y and X arrays for training/testing population downscaling estimates.
 
-	Y contains vectors with the correspondent population densities
-	X contains vectors with normalized urban features
-	X_columns columns referring to X values
-	Numpy arrays are stored locally
+        Y contains vectors with the correspondent population densities
+        X contains vectors with normalized urban features
+        X_columns columns referring to X values
+        Numpy arrays are stored locally
 
-	Parameters
-	----------
-	city_ref : string
-		city reference name
-	df_insee_urban_features : geopandas.GeoDataFrame
-		grid-cells with population count data and calculated urban features
+        Parameters
+        ----------
+        city_ref : string
+                city reference name
+        df_insee_urban_features : geopandas.GeoDataFrame
+                grid-cells with population count data and calculated urban features
 
-	Returns
-	----------
-	np.array, np.array, np.array
-		Y vector, X vector, X column names vector
-	"""
+        Returns
+        ----------
+        np.array, np.array, np.array
+                Y vector, X vector, X column names vector
+        """
     # Population extract exists?
     if os.path.exists(get_population_training_validating_filename(city_ref)):
         log(
@@ -389,12 +384,15 @@ def get_training_testing_data(city_ref, df_insee_urban_features=None):
         lambda x: x / x.max(), axis=0
     )
 
-    # By default, idINSPIRE for created squares (0 population count) is 0: Change for 'CRS' string: Coherent with squares aggregation procedure (string matching)
+    # By default, idINSPIRE for created squares (0 population count) is 0:
+    # Change for 'CRS' string: Coherent with squares aggregation procedure
+    # (string matching)
     df_insee_urban_features.loc[
         df_insee_urban_features.idINSPIRE == 0, "idINSPIRE"
     ] = "CRS"
 
-    # Aggregate 5x5 squares: Get all possible aggregations (step of 200 meters = length of individual square)
+    # Aggregate 5x5 squares: Get all possible aggregations
+    # (step of 200 meters = length of individual square)
     aggregated_df_insee_urban_features = get_aggregated_squares(
         ox.project_gdf(df_insee_urban_features, to_crs="+init=epsg:3035"),
         step=200.0,
@@ -403,12 +401,14 @@ def get_training_testing_data(city_ref, df_insee_urban_features=None):
 
     # X values: Vector <x1,x2, ... , xn> with normalized urban features
     X_values = []
-    # Y values: Vector <y1, y2, ... , ym> with normalized population densities. m=25
+    # Y values: Vector <y1, y2, ... , ym>
+    # with normalized population densities. m=25
     Y_values = []
 
     # For each <Indices> combination, create a X and Y vector
     for idx in aggregated_df_insee_urban_features.indices:
-        # Extract the urban features in the given 'indices' order (Fill to 0 for non-existent squares)
+        # Extract the urban features in the given 'indices' order
+        # (Fill to 0 for non-existent squares)
         square_info = df_insee_urban_features.reindex(idx).fillna(0)
         # Y input (Ground truth): Population densities
         population_densities = (
@@ -465,26 +465,26 @@ def get_training_testing_data(city_ref, df_insee_urban_features=None):
 
 def get_Y_X_features_population_data(cities_selection=None, cities_skip=None):
     """
-	Returns the Y and X arrays for training/testing population downscaling estimates.
-	It gathers either a selection of cities or all stored cities but a selected list to skip
+        Returns the Y and X arrays for training/testing population downscaling estimates.
+        It gathers either a selection of cities or all stored cities but a selected list to skip
 
-	Y contains vectors with the correspondent population densities
-	X contains vectors with normalized urban features
-	X_columns columns referring to X values
-	Numpy arrays are previously stored
+        Y contains vectors with the correspondent population densities
+        X contains vectors with normalized urban features
+        X_columns columns referring to X values
+        Numpy arrays are previously stored
 
-	Parameters
-	----------
-	cities_selection : string
-		list of cities to select
-	cities_skip : string
-		list of cities to skip (retrieve the rest)
+        Parameters
+        ----------
+        cities_selection : string
+                list of cities to select
+        cities_skip : string
+                list of cities to skip (retrieve the rest)
 
-	Returns
-	----------
-	np.array, np.array, np.array
-		Y vector, X vector, X column names vector
-	"""
+        Returns
+        ----------
+        np.array, np.array, np.array
+                Y vector, X vector, X column names vector
+        """
     arr_X, arr_Y = [], []
 
     # Get the complete training-testig dataset

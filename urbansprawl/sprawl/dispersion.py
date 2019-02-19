@@ -1,44 +1,47 @@
-###################################################################################################
+###############
 # Repository: https://github.com/lgervasoni/urbansprawl
 # MIT License
-###################################################################################################
+###############
 
 from scipy import spatial
 import numpy as np
-import pandas as pd
 import time
 
 from osmnx import log
 
 ##############################################################
-### Dispersion indices methods
+# Dispersion indices methods
 ##############################################################
 
 
 def closest_building_distance_median(
     point_ref, tree, df_closest_d, radius_search
 ):
-    """ 
-	Dispersion metric at point_ref
-	Computes the median of the closest distance to another building for each building within a radius search
-	Uses the input KDTree to accelerate calculations
+    """
+        Dispersion metric at point_ref
 
-	Parameters
-	----------
-	point_ref : shapely.Point
-		calculate index at input point
-	tree : scipy.spatial.KDTree
-		KDTree of buildings centroid
-	df : pandas.DataFrame 
-		data frame of buildings with closest distance calculation
-	radius_search : float
-		circle radius to consider the dispersion calculation at a local point
+    Computes the median of the closest distance to another building for
+    each building within a radius search
 
-	Returns
-	----------
-	float
-		value of dispersion at input point
-	"""
+        Uses the input KDTree to accelerate calculations
+
+        Parameters
+        ----------
+        point_ref : shapely.Point
+                calculate index at input point
+        tree : scipy.spatial.KDTree
+                KDTree of buildings centroid
+        df : pandas.DataFrame
+                data frame of buildings with closest distance calculation
+        radius_search : float
+                circle radius to consider the dispersion calculation at a local
+        point
+
+        Returns
+        ----------
+        float
+                value of dispersion at input point
+        """
     # Query buildings within radius search
     indices = tree.query_ball_point(point_ref, radius_search)
     # No dispersion value
@@ -51,27 +54,27 @@ def closest_building_distance_median(
 def closest_building_distance_average(
     point_ref, tree, df_closest_d, radius_search
 ):
-    """ 
-	Dispersion metric at point_ref
-	Computes the mean of the closest distance to another building for each building within a radius search
-	Uses the input KDTree to accelerate calculations
+    """
+        Dispersion metric at point_ref
+        Computes the mean of the closest distance to another building for each building within a radius search
+        Uses the input KDTree to accelerate calculations
 
-	Parameters
-	----------
-	point_ref : shapely.Point
-		calculate index at input point
-	tree : scipy.spatial.KDTree
-		KDTree of buildings centroid
-	df : pandas.DataFrame 
-		data frame of buildings with closest distance calculation
-	radius_search : int
-		circle radius to consider the dispersion calculation at a local point
+        Parameters
+        ----------
+        point_ref : shapely.Point
+                calculate index at input point
+        tree : scipy.spatial.KDTree
+                KDTree of buildings centroid
+        df : pandas.DataFrame
+                data frame of buildings with closest distance calculation
+        radius_search : int
+                circle radius to consider the dispersion calculation at a local point
 
-	Returns
-	----------
-	float
-		value of dispersion at input point
-	"""
+        Returns
+        ----------
+        float
+                value of dispersion at input point
+        """
     # Query buildings within radius search
     indices = tree.query_ball_point(point_ref, radius_search)
     # No dispersion value
@@ -82,7 +85,7 @@ def closest_building_distance_average(
 
 
 ##############################################################
-### Dispersion indices calculation
+# Dispersion indices calculation
 ##############################################################
 
 
@@ -91,36 +94,34 @@ def compute_grid_dispersion(
     df_osm_built,
     kwargs={"radius_search": 750, "use_median": True, "K_nearest": 50},
 ):
-    """ 
-	Creates grid and calculates dispersion indices.
+    """
+        Creates grid and calculates dispersion indices.
 
-	Parameters
-	----------
-	df_indices : geopandas.GeoDataFrame
-		data frame containing the (x,y) reference points to calculate indices
-	df_osm_built : geopandas.GeoDataFrame
-		data frame containing the building's geometries
-	kw_args: dict
-		additional keyword arguments for the indices calculation
-			radius_search: int
-				circle radius to consider the dispersion calculation at a local point
-			use_median : bool
-				denotes whether the median or mean should be used to calculate the indices
-			K_nearest : int
-				number of neighboring buildings to consider in evaluation
+        Parameters
+        ----------
+        df_indices : geopandas.GeoDataFrame
+                data frame containing the (x,y) reference points to calculate indices
+        df_osm_built : geopandas.GeoDataFrame
+                data frame containing the building's geometries
+        kw_args: dict
+                additional keyword arguments for the indices calculation
+                        radius_search: int
+                                circle radius to consider the dispersion calculation at a local point
+                        use_median : bool
+                                denotes whether the median or mean should be used to calculate the indices
+                        K_nearest : int
+                                number of neighboring buildings to consider in evaluation
 
-	Returns
-	----------
-	geopandas.GeoDataFrame
-		data frame with the added column for dispersion indices
-	"""
+        Returns
+        ----------
+        geopandas.GeoDataFrame
+                data frame with the added column for dispersion indices
+        """
     log("Calculating dispersion indices")
     start = time.time()
 
     # Get radius search: circle radius to consider the dispersion calculation at a local point
     radius_search = kwargs["radius_search"]
-    # Use the median or mean computation ?
-    use_median = kwargs["use_median"]
 
     # Assign dispersion calculation method
     if kwargs["use_median"]:
@@ -161,29 +162,34 @@ def compute_grid_dispersion(
 
 
 def _apply_polygon_closest_distance_neighbor(df_osm_built, K_nearest=50):
-    """ 
-	Computes for each polygon, the distance to the (approximated) nearest neighboring polygon
-	Approximation is done using distance between centroids to K nearest neighboring polygons, then evaluating the real polygon distance
-	A column `closest_d` is added in the data frame
+    """
+        Computes for each polygon, the distance to the (approximated) nearest
+    neighboring polygon
 
-	Parameters
-	----------
-	df_osm_built: geopandas.GeoDataFrame
-		data frame containing the building's geometries
-	K_nearest: int
-		number of neighboring polygons to evaluate
+        Approximation is done using distance between centroids to K nearest
+        neighboring polygons, then evaluating the real polygon distance
 
-	Returns
-	----------
+        A column `closest_d` is added in the data frame
 
-	"""
+        Parameters
+        ----------
+        df_osm_built: geopandas.GeoDataFrame
+                data frame containing the building's geometries
+        K_nearest: int
+                number of neighboring polygons to evaluate
+
+        Returns
+        ----------
+
+        """
 
     def get_closest_indices(tree, x, K_nearest):
         # Query the closest buidings considering their centroid
         return tree.query(x.centroid.coords[0], k=K_nearest + 1)[1][1:]
 
     def compute_closest_distance(x, buildings):
-        # Minimum distance of all distances between reference building 'x' and the other buildings
+        # Minimum distance of all distances between reference building 'x'
+        # and the other buildings
         return (buildings.apply(lambda b: x.distance(b))).min()
 
         # Use all elements to get the exact closest neighbor?

@@ -1,7 +1,7 @@
-###################################################################################################
+###############
 # Repository: https://github.com/lgervasoni/urbansprawl
 # MIT License
-###################################################################################################
+###############
 
 import geopandas as gpd
 import pandas as pd
@@ -19,21 +19,21 @@ geo_format = "geojson"  # 'shp'
 
 def get_population_extract_filename(city_ref_file, data_source):
     """
-	Get data population extract filename for input city
+        Get data population extract filename for input city
 
-	Parameters
-	----------
-	city_ref_file : string
-		name of input city
-	data_source : string
-		desired population data source
+        Parameters
+        ----------
+        city_ref_file : string
+                name of input city
+        data_source : string
+                desired population data source
 
-	Returns
-	----------
-	string
-		returns the population extract filename
-	
-	"""
+        Returns
+        ----------
+        string
+                returns the population extract filename
+
+        """
     # Folder exists?
     import os
 
@@ -51,22 +51,22 @@ def get_population_extract_filename(city_ref_file, data_source):
 
 def get_population_urban_features_filename(city_ref_file, data_source):
     """
-	Get population urban features extract filename for input city
-	Force GeoJSON format: Shapefiles truncate column names
+        Get population urban features extract filename for input city
+        Force GeoJSON format: Shapefiles truncate column names
 
-	Parameters
-	----------
-	city_ref_file : string
-		name of input city
-	data_source : string
-		desired population data source
+        Parameters
+        ----------
+        city_ref_file : string
+                name of input city
+        data_source : string
+                desired population data source
 
-	Returns
-	----------
-	string
-		returns the population extract filename
-	
-	"""
+        Returns
+        ----------
+        string
+                returns the population extract filename
+
+        """
     # Folder exists?
     import os
 
@@ -87,20 +87,20 @@ def get_population_training_validating_filename(
     city_ref_file, data_source="training"
 ):
     """
-	Get population normalized urban features extract and population densities filename for input city
-	Stored in Numpy.Arrays
+        Get population normalized urban features extract and population densities filename for input city
+        Stored in Numpy.Arrays
 
-	Parameters
-	----------
-	city_ref_file : string
-		name of input city
+        Parameters
+        ----------
+        city_ref_file : string
+                name of input city
 
-	Returns
-	----------
-	string
-		returns the numpy stored/storing filename
-	
-	"""
+        Returns
+        ----------
+        string
+                returns the numpy stored/storing filename
+
+        """
     # Folder exists?
     import os
 
@@ -115,41 +115,45 @@ def get_population_training_validating_filename(
 
 
 def get_aggregated_squares(df_insee, step=1000.0, conserve_squares_info=False):
-    """
-	Aggregates input population data in squares of 5x5
-	Assumption: Input squares 200m by 200m
-	INSEE data contains column 'idINSPIRE' which denotes in EPSG:3035 the northing/easting coordinates of the south-west box endpoint
-	If conserve squares information is True, the information relative to each original square is kept
-	Output: Aggregated squares of 1km by 1km
+    """Aggregates input population data in squares of 5x5
 
-	Parameters
-	----------
-	df_insee : geopandas.GeoDataFrame
-		INSEE population data
-	step : float
-		sampling step (default of 1 kilometer)
-	conserve_squares_info : bool
-		determines if each aggregated square conserves the information of each smaller composing square
+        Assumption: Input squares 200m by 200m
 
-	Returns
-	----------
-	geopandas.GeoDataFrame
-		returns the aggregated population data
-	"""
+        INSEE data contains column 'idINSPIRE' which denotes in EPSG:3035 the
+        northing/easting coordinates of the south-west box endpoint
+
+    If conserve squares information is True, the information relative to each
+        original square is kept
+        Output: Aggregated squares of 1km by 1km
+
+        Parameters
+        ----------
+        df_insee : geopandas.GeoDataFrame
+                INSEE population data
+        step : float
+                sampling step (default of 1 kilometer)
+        conserve_squares_info : bool
+                determines if each aggregated square conserves the information of each smaller composing square
+
+        Returns
+        ----------
+        geopandas.GeoDataFrame
+                returns the aggregated population data
+        """
 
     def get_northing_easting(x):  # Extract northing and easting coordinates
         try:
             north, east = x.idINSPIRE.split("N")[1].split("E")
             x["north"] = int(north)
             x["east"] = int(east)
-        except:
+        except (IndexError, ValueError):
             x["north"], x["east"] = np.nan, np.nan
         return x
 
     def index_square(x, df_insee, offset_index):
         squares = df_insee.cx[
-            x.geometry.x - offset_index : x.geometry.x + offset_index,
-            x.geometry.y - offset_index : x.geometry.y + offset_index,
+            x.geometry.x - offset_index: x.geometry.x + offset_index,
+            x.geometry.y - offset_index: x.geometry.y + offset_index,
         ]
         aggregated_polygon = Polygon()
         for geom in squares.geometry:
@@ -160,8 +164,8 @@ def get_aggregated_squares(df_insee, step=1000.0, conserve_squares_info=False):
 
     def index_square_conservative(x, df_insee, offset_index):
         squares = df_insee.cx[
-            x.geometry.x - offset_index : x.geometry.x + offset_index,
-            x.geometry.y - offset_index : x.geometry.y + offset_index,
+            x.geometry.x - offset_index: x.geometry.x + offset_index,
+            x.geometry.y - offset_index: x.geometry.y + offset_index,
         ]
         aggregated_polygon = Polygon()
         for geom in squares.geometry:
@@ -261,22 +265,26 @@ def get_aggregated_squares(df_insee, step=1000.0, conserve_squares_info=False):
 
 
 def population_downscaling_validation(df_osm_built, df_insee):
-    """
-	Validates the population downscaling estimation by means of aggregating the sum of buildings estimated population lying within each population square
-	Allows to compare the real population count with the estimated population lying within each square
-	Updates new column 'pop_estimation' for each square in the population data frame
+    """Validates the population downscaling estimation by means of aggregating
+    the sum of buildings estimated population lying within each population
+    square
+        Allows to compare the real population count with the estimated
+    population lying within each square
 
-	Parameters
-	----------
-	df_osm_built : geopandas.GeoDataFrame
-		input buildings with computed population count
-	df_insee : geopandas.GeoDataFrame
-		INSEE population data
+    Updates new column 'pop_estimation' for each square in the population data
+    frame
 
-	Returns
-	----------
+        Parameters
+        ----------
+        df_osm_built : geopandas.GeoDataFrame
+                input buildings with computed population count
+        df_insee : geopandas.GeoDataFrame
+                INSEE population data
 
-	"""
+        Returns
+        ----------
+
+        """
     df_osm_built["geom"] = df_osm_built.geometry
     df_osm_built_residential = df_osm_built[
         df_osm_built.apply(lambda x: x.landuses_m2["residential"] > 0, axis=1)
@@ -314,18 +322,18 @@ def population_downscaling_validation(df_osm_built, df_insee):
 
 
 def get_population_df_filled_empty_squares(df_insee):
-    """ 
-	Add empty squares as 0-population box-squares
+    """
+        Add empty squares as 0-population box-squares
 
-	Parameters
-	----------
-	df_insee : geopandas.GeoDataFrame
-		INSEE population data
+        Parameters
+        ----------
+        df_insee : geopandas.GeoDataFrame
+                INSEE population data
 
-	Returns
-	----------
+        Returns
+        ----------
 
-	"""
+        """
 
     def get_northing_easting(x):  # Extract northing and easting coordinates
         north, east = x.idINSPIRE.split("N")[1].split("E")

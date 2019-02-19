@@ -1,15 +1,9 @@
-###################################################################################################
+###############
 # Repository: https://github.com/lgervasoni/urbansprawl
 # MIT License
-###################################################################################################
+###############
 
-import osmnx as ox
-import pandas as pd
 import geopandas as gpd
-import numpy as np
-from scipy import spatial
-
-from osmnx import log
 
 from .tags import (
     key_classification,
@@ -17,30 +11,31 @@ from .tags import (
     activity_classification,
 )
 
-####################################################################################
+#############################################################################
 # Under uncertainty: Residential assumption?
 RESIDENTIAL_ASSUMPTION_UNCERTAINTY = True
-####################################################################################
+#############################################################################
 
 ############################################
-### Tag land use classification
+# Tag land use classification
 ############################################
 
 
 def aggregate_classification(classification_list):
-    """ 
-	Aggregate into a unique classification given an input list of classifications
+    """
+        Aggregate into a unique classification given an input list of
+    classifications
 
-	Parameters
-	----------
-	classification_list : list
-		list with the input land use classifications
-	
-	Returns
-	----------
-	string
-		returns the aggregated classification
-	"""
+        Parameters
+        ----------
+        classification_list : list
+                list with the input land use classifications
+
+        Returns
+        ----------
+        string
+                returns the aggregated classification
+        """
     if "other" in classification_list:  # other tag -> Non-interesting building
         classification = None
     elif ("activity" in classification_list) and (
@@ -62,19 +57,21 @@ def aggregate_classification(classification_list):
 
 
 def classify_tag(tags, return_key_value=True):
-    """ 
-	Classify the land use of input OSM tag in `activity`, `residential`, `mixed`, None, or `infer` (to infer later)
+    """
+        Classify the land use of input OSM tag in `activity`, `residential`,
+    `mixed`, None, or `infer` (to infer later)
 
-	Parameters
-	----------
-	tags : dict
-		OpenStreetMap tags
-	
-	Returns
-	----------
-	string, dict
-		returns the classification, and a dict relating `key`:`value` defining its classification
-	"""
+        Parameters
+        ----------
+        tags : dict
+                OpenStreetMap tags
+
+        Returns
+        ----------
+        string, dict
+                returns the classification, and a dict relating `key`:`value`
+        defining its classification
+        """
     # key_value: Dictionary of osm key : osm value
     classification, key_value = [], {}
 
@@ -104,24 +101,25 @@ def classify_tag(tags, return_key_value=True):
 
 
 ############################################
-### Land use inference
+# Land use inference
 ############################################
 
 
 def classify_landuse_inference(land_use):
-    """ 
-	Classify input land use into a defined category: `other`, `activity`, `residential`, or None
+    """
+        Classify input land use into a defined category: `other`, `activity`,
+    `residential`, or None
 
-	Parameters
-	----------
-	land_use : string
-		input land use tag
-	
-	Returns
-	----------
-	string
-		returns the land use classification
-	"""
+        Parameters
+        ----------
+        land_use : string
+                input land use tag
+
+        Returns
+        ----------
+        string
+                returns the land use classification
+        """
     for key, value in landuse_classification.items():
         # key: Classification ; value: keys contained in the classification
         if land_use in value:
@@ -136,22 +134,25 @@ def classify_landuse_inference(land_use):
 
 
 def compute_landuse_inference(df_buildings, df_landuse):
-    """ 
-	Compute land use inference for building polygons with no information
-	The inference is done using polygons with defined land use
-	A building polygon's land use is inferred by means of adopting the land use of the smallest encompassing polygon with defined land use
+    """
+        Compute land use inference for building polygons with no information
 
-	Parameters
-	----------
-	df_buildings : geopandas.GeoDataFrame
-		input buildings
-	df_landuse : geopandas.GeoDataFrame
-		land use polygons to aid inference procedure
+        The inference is done using polygons with defined land use
 
-	Returns
-	----------
-	
-	"""
+        A building polygon's land use is inferred by means of adopting the land
+        use of the smallest encompassing polygon with defined land use
+
+        Parameters
+        ----------
+        df_buildings : geopandas.GeoDataFrame
+                input buildings
+        df_landuse : geopandas.GeoDataFrame
+                land use polygons to aid inference procedure
+
+        Returns
+        ----------
+
+        """
     # Get those indices which need to be inferred, and keep geometry column only
     df_buildings_to_infer = df_buildings.loc[
         df_buildings["classification"] == "infer", ["geometry"]
@@ -169,7 +170,7 @@ def compute_landuse_inference(df_buildings, df_landuse):
     # Drop duplicates. Keep first (minimum computing area)
     sjoin.drop_duplicates(subset=["index"], keep="first", inplace=True)
 
-    ##### Set key:value and classification
+    # Set key:value and classification
     # Set default value: inferred:None
     df_buildings.loc[
         df_buildings_to_infer.index, "key_value"
@@ -198,24 +199,24 @@ def compute_landuse_inference(df_buildings, df_landuse):
 
 
 ############################################
-### Activity type classification
+# Activity type classification
 ############################################
 
 
 def value_activity_category(x):
-    """ 
-	Classify the activity of input activity value
+    """
+        Classify the activity of input activity value
 
-	Parameters
-	----------
-	x : string
-		activity value
-	
-	Returns
-	----------
-	string
-		returns the activity classification
-	"""
+        Parameters
+        ----------
+        x : string
+                activity value
+
+        Returns
+        ----------
+        string
+                returns the activity classification
+        """
     for key, value in activity_classification.items():
         if x in value:
             return key
@@ -223,22 +224,24 @@ def value_activity_category(x):
 
 
 def key_value_activity_category(key, value):
-    """ 
-	Classify the activity of input pair key:value
+    """
+        Classify the activity of input pair key:value
 
-	Parameters
-	----------
-	key : string
-		key dict
-	value : string
-		value dict
-	
-	Returns
-	----------
-	string
-		returns the activity classification
-	"""
-    # Note that some values repeat for different keys (e.g. shop=fuel and amenity=fuel), but they do not belong to the same activity classification
+        Parameters
+        ----------
+        key : string
+                key dict
+        value : string
+                value dict
+
+        Returns
+        ----------
+        string
+                returns the activity classification
+        """
+    # Note that some values repeat for different keys
+    # (e.g. shop=fuel and amenity=fuel),
+    # but they do not belong to the same activity classification
     return {
         "shop": "shop",
         "leisure": "leisure/amenity",
@@ -256,21 +259,22 @@ def key_value_activity_category(key, value):
 
 
 def classify_activity_category(key_values):
-    """ 
-	Classify input activity category into `commercial/industrial`, `leisure/amenity`, or `shop`
+    """
+        Classify input activity category into `commercial/industrial`,
+    `leisure/amenity`, or `shop`
 
-	Parameters
-	----------
-	key_values : dict
-		contain pairs of key:value relating to its usage
-	
-	Returns
-	----------
-	string
-		returns the activity classification
-	"""
+        Parameters
+        ----------
+        key_values : dict
+                contain pairs of key:value relating to its usage
+
+        Returns
+        ----------
+        string
+                returns the activity classification
+        """
     ####################
-    ### Categories: commercial/industrial, leisure/amenity, shop
+    # Categories: commercial/industrial, leisure/amenity, shop
     ####################
     categories = set(
         [

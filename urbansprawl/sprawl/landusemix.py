@@ -1,7 +1,7 @@
-###################################################################################################
+###############
 # Repository: https://github.com/lgervasoni/urbansprawl
 # MIT License
-###################################################################################################
+###############
 
 import math
 import numpy as np
@@ -14,27 +14,27 @@ from .utils import WeightedKernelDensityEstimation
 from osmnx import log
 
 ##############################################################
-### Land use mix indices methods
+# Land use mix indices methods
 ##############################################################
 
 
 def metric_phi_entropy(x, y):
-    """ 
-	Shannon's entropy metric
-	Based on article "Comparing measures of urban land use mix, 2013"
+    """
+        Shannon's entropy metric
+        Based on article "Comparing measures of urban land use mix, 2013"
 
-	Parameters
-	----------
-	x : float
-		probability related to land use X
-	y : float
-		probability related to land use Y
+        Parameters
+        ----------
+        x : float
+                probability related to land use X
+        y : float
+                probability related to land use Y
 
-	Returns
-	----------
-	float
-		entropy value
-	"""
+        Returns
+        ----------
+        float
+                entropy value
+        """
     # Undefined for negative values
     if x < 0 or y < 0:
         return np.nan
@@ -47,11 +47,11 @@ def metric_phi_entropy(x, y):
     return phi_value
 
 
-#### Assign land use mix method
+# Assign land use mix method
 _land_use_mix = metric_phi_entropy
 
 ##############################################################
-### Land use mix indices calculation
+# Land use mix indices calculation
 ##############################################################
 
 
@@ -67,35 +67,35 @@ def compute_grid_landusemix(
         "log_weighted": True,
     },
 ):
-    """ 
-	Calculate land use mix indices on input grid
+    """
+        Calculate land use mix indices on input grid
 
-	Parameters
-	----------
-	df_indices : geopandas.GeoDataFrame
-		data frame containing the (x,y) reference points to calculate indices
-	df_osm_built : geopandas.GeoDataFrame
-		data frame containing the building's geometries
-	df_osm_pois : geopandas.GeoDataFrame
-		data frame containing the points' of interest geometries
-	kw_args: dict
-		additional keyword arguments for the indices calculation
-			walkable_distance : int
-				the bandwidth assumption for Kernel Density Estimation calculations (meters)
-			compute_activity_types_kde : bool
-				determines if the densities for each activity type should be computed
-			weighted_kde : bool
-				use Weighted Kernel Density Estimation or classic version
-			pois_weight : int
-				Points of interest weight equivalence with buildings (squared meter)
-			log_weighted : bool
-				apply natural logarithmic function to surface weights
+        Parameters
+        ----------
+        df_indices : geopandas.GeoDataFrame
+                data frame containing the (x,y) reference points to calculate indices
+        df_osm_built : geopandas.GeoDataFrame
+                data frame containing the building's geometries
+        df_osm_pois : geopandas.GeoDataFrame
+                data frame containing the points' of interest geometries
+        kw_args: dict
+                additional keyword arguments for the indices calculation
+                        walkable_distance : int
+                                the bandwidth assumption for Kernel Density Estimation calculations (meters)
+                        compute_activity_types_kde : bool
+                                determines if the densities for each activity type should be computed
+                        weighted_kde : bool
+                                use Weighted Kernel Density Estimation or classic version
+                        pois_weight : int
+                                Points of interest weight equivalence with buildings (squared meter)
+                        log_weighted : bool
+                                apply natural logarithmic function to surface weights
 
-	Returns
-	----------
-	pandas.DataFrame
-		land use mix indices
-	"""
+        Returns
+        ----------
+        pandas.DataFrame
+                land use mix indices
+        """
     log("Calculating land use mix indices")
     start = time.time()
 
@@ -123,7 +123,7 @@ def compute_grid_landusemix(
     ]
 
     ############
-    ### Calculate land use density estimations
+    # Calculate land use density estimations
     ############
 
     ####
@@ -260,32 +260,32 @@ def calculate_kde(
     log_weight=True,
 ):
     """
-	Evaluate the probability density function using Kernel Density Estimation of input geo-localized data
-	KDE's bandwidth stands for walkable distances
-	If input weights are given, a Weighted Kernel Density Estimation is carried out
+        Evaluate the probability density function using Kernel Density Estimation of input geo-localized data
+        KDE's bandwidth stands for walkable distances
+        If input weights are given, a Weighted Kernel Density Estimation is carried out
 
-	Parameters
-	----------
-	points : geopandas.GeoSeries
-		reference points to calculate indices
-	df_osm_built : geopandas.GeoDataFrame
-		data frame containing the building's geometries
-	df_osm_pois : geopandas.GeoDataFrame
-		data frame containing the points' of interest geometries
-	bandwidth: int
-		bandwidth value to be employed on the Kernel Density Estimation
-	X_weights : pandas.Series
-		indicates the weight for each input building (e.g. surface)
-	pois_weight : int
-		weight assigned to points of interest
-	log_weight : bool
-		if indicated, applies a log transformation to input weight values
+        Parameters
+        ----------
+        points : geopandas.GeoSeries
+                reference points to calculate indices
+        df_osm_built : geopandas.GeoDataFrame
+                data frame containing the building's geometries
+        df_osm_pois : geopandas.GeoDataFrame
+                data frame containing the points' of interest geometries
+        bandwidth: int
+                bandwidth value to be employed on the Kernel Density Estimation
+        X_weights : pandas.Series
+                indicates the weight for each input building (e.g. surface)
+        pois_weight : int
+                weight assigned to points of interest
+        log_weight : bool
+                if indicated, applies a log transformation to input weight values
 
-	Returns
-	----------
-	pandas.Series
-		
-	"""
+        Returns
+        ----------
+        pandas.Series
+
+        """
     # X_b : Buildings array
     X_b = [[p.x, p.y] for p in df_osm_built.geometry.centroid.values]
 

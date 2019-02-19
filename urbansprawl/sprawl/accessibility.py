@@ -1,12 +1,11 @@
-###################################################################################################
+###############
 # Repository: https://github.com/lgervasoni/urbansprawl
 # MIT License
-###################################################################################################
+###############
 
 from scipy import spatial
 import numpy as np
 import pandas as pd
-import geopandas as gpd
 import networkx as nx
 import time
 import os
@@ -19,7 +18,7 @@ from osmnx import log
 from .utils import divide_long_edges_graph
 
 ##############################################################
-### Compute accessibility grid
+# Compute accessibility grid
 ##############################################################
 
 
@@ -39,44 +38,53 @@ def compute_grid_accessibility(
         "fixed_activities_max_travel_distance": 5000,
     },
 ):
-    """ 
-	Calculate accessibility values at point_ref
+    """
+        Calculate accessibility values at point_ref
 
-	Parameters
-	----------
-	df_indices : geopandas.GeoDataFrame
-		data frame containing the (x,y) reference points to calculate indices
-	G : networkx multidigraph
-		input graph to calculate accessibility
-	df_osm_built : geopandas.GeoDataFrame
-		data frame containing the building's geometries and corresponding land uses
-	df_osm_pois : geopandas.GeoDataFrame
-		data frame containing the points' of interest geometries
-	kw_args: dict
-		additional keyword arguments for the indices calculation
-			fixed_distance : bool
-				denotes the cumulative opportunities access to activity land uses given a fixed maximum distance to travel
-			fixed_activities : bool
-				represents the distance needed to travel in order to reach a certain number of activity land uses
-			max_edge_length: int
-				maximum length, in meters, to tolerate an edge in a graph (otherwise, divide edge)
-			max_node_distance: int
-				maximum distance tolerated from input point to closest graph node in order to calculate accessibility values
-			fixed_distance_max_travel_distance: int
-				(fixed distance) maximum distance tolerated (cut&branch) when searching for the activities
-			fixed_distance_max_num_activities: int
-				(fixed distance) cut iteration if the number of activities exceeds a threshold
-			fixed_activities_min_number: int
-				(fixed activities) minimum number of activities required
-			fixed_activities_max_travel_distance : int
-				(fixed activities) maximum distance tolerated (cut&branch) when searching for the activities
+        Parameters
+        ----------
+        df_indices : geopandas.GeoDataFrame
+                data frame containing the (x,y) reference points to calculate
+        indices
+        G : networkx multidigraph
+                input graph to calculate accessibility
+        df_osm_built : geopandas.GeoDataFrame
+                data frame containing the building's geometries and
+        corresponding land uses
+        df_osm_pois : geopandas.GeoDataFrame
+                data frame containing the points' of interest geometries
+        kw_args: dict
+                additional keyword arguments for the indices calculation
+        fixed_distance : bool
+                denotes the cumulative opportunities access to activity land
+        uses given a fixed maximum distance to travel
+        fixed_activities : bool
+                represents the distance needed to travel in order to reach a
+        certain number of activity land uses
+        max_edge_length: int
+                maximum length, in meters, to tolerate an edge in a graph
+        (otherwise, divide edge)
+        max_node_distance: int
+                maximum distance tolerated from input point to closest graph
+        node in order to calculate accessibility values
+        fixed_distance_max_travel_distance: int
+                (fixed distance) maximum distance tolerated (cut&branch) when
+        searching for the activities
+        fixed_distance_max_num_activities: int
+                (fixed distance) cut iteration if the number of activities
+        exceeds a threshold
+        fixed_activities_min_number: int
+                (fixed activities) minimum number of activities required
+        fixed_activities_max_travel_distance : int
+                (fixed activities) maximum distance tolerated (cut&branch) when
+        searching for the activities
 
-
-	Returns
-	----------
-	int
-		number of activities found within a radius distance using the street network
-	"""
+        Returns
+        ----------
+        int
+                number of activities found within a radius distance using the
+        street network
+        """
     log("Calculating accessibility indices")
     start = time.time()
 
@@ -87,7 +95,7 @@ def compute_grid_accessibility(
     kw_arguments = pd.Series(kw_args)
 
     ##############
-    ### Prepare input data for indices calculation in parallel call
+    # Prepare input data for indices calculation in parallel call
     ##############
     # Temporary folder to pickle data
     if not os.path.exists("temp"):
@@ -108,7 +116,7 @@ def compute_grid_accessibility(
     )
 
     ##############
-    ### Verify amount of memory used per subprocess
+    # Verify amount of memory used per subprocess
     ##############
     p = subprocess.Popen(
         command_call.replace("NUM_CHUNK", str(0)) + " memory_test",
@@ -132,7 +140,7 @@ def compute_grid_accessibility(
     log("Number of available cores: " + str(num_cores))
 
     ##############
-    ### Set chunks to run in parallel: If more core than allowed processes, divide chunks to run at most X processes
+    # Set chunks to run in parallel: If more core than allowed processes, divide chunks to run at most X processes
     ##############
     if (
         num_cores > max_processes
@@ -191,29 +199,29 @@ def compute_grid_accessibility(
 def prepare_data(
     G, df_osm_built, df_osm_pois, df_indices, num_processes, kw_arguments
 ):
-    """ 
-	Pickles data to a temporary folder in order to achieve parallel accessibility calculation
-	A new subprocess will be created in order to minimize memory requirements
+    """
+        Pickles data to a temporary folder in order to achieve parallel accessibility calculation
+        A new subprocess will be created in order to minimize memory requirements
 
-	Parameters
-	----------
-	G : networkx multidigraph
-		input graph to calculate accessibility
-	df_osm_built : geopandas.GeoDataFrame
-		buildings data
-	df_osm_pois : geopandas.GeoDataFrame
-		buildings data
-	df_indices : geopandas.GeoDataFrame
-		data frame where indices will be calculated
-	num_processes : int
-		number of data chunks to create
-	kw_arguments : pandas.Series
-		additional keyword arguments
+        Parameters
+        ----------
+        G : networkx multidigraph
+                input graph to calculate accessibility
+        df_osm_built : geopandas.GeoDataFrame
+                buildings data
+        df_osm_pois : geopandas.GeoDataFrame
+                buildings data
+        df_indices : geopandas.GeoDataFrame
+                data frame where indices will be calculated
+        num_processes : int
+                number of data chunks to create
+        kw_arguments : pandas.Series
+                additional keyword arguments
 
-	Returns
-	----------
+        Returns
+        ----------
 
-	"""
+        """
     # Divide long edges
     divide_long_edges_graph(G, kw_arguments.max_edge_length)
     log("Graph long edges shortened")
@@ -244,7 +252,7 @@ def prepare_data(
 
     try:
         G.graph.pop("streets_per_node")
-    except:
+    except Exception:
         pass
         # Pickle graph
     nx.write_gpickle(G, "temp/graph.gpickle")
@@ -260,22 +268,22 @@ def prepare_data(
 def associate_activities_closest_node(
     G, df_activities_built, df_activities_pois
 ):
-    """ 
-	Associates the number of existing activities to their closest nodes in the graph
+    """
+        Associates the number of existing activities to their closest nodes in the graph
 
-	Parameters
-	----------
-	G : networkx multidigraph
-		input graph to calculate accessibility
-	df_activities_built : pandas.DataFrame
-		data selection of buildings with activity uses
-	df_activities_pois : pandas.DataFrame
-		data selection of points of interest with activity uses
+        Parameters
+        ----------
+        G : networkx multidigraph
+                input graph to calculate accessibility
+        df_activities_built : pandas.DataFrame
+                data selection of buildings with activity uses
+        df_activities_pois : pandas.DataFrame
+                data selection of points of interest with activity uses
 
-	Returns
-	----------
+        Returns
+        ----------
 
-	"""
+        """
     # Initialize number of activity references
     for u, data in G.nodes(data=True):
         data["num_activities"] = 0

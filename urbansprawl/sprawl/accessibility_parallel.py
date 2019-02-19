@@ -1,7 +1,7 @@
-###################################################################################################
+###############
 # Repository: https://github.com/lgervasoni/urbansprawl
 # MIT License
-###################################################################################################
+###############
 
 import sys
 import numpy as np
@@ -13,22 +13,22 @@ import time
 
 def get_nearest_node_utm(G, point, return_dist=False):
     """
-	Return the nearest graph node to some specified point in UTM coordinates
-	
-	Parameters
-	----------
-	G : networkx multidigraph
-		input graph
-	point : tuple
-		the (x, y) point for which we will find the nearest node in the graph
-	return_dist : bool
-		optionally also return the distance between the point and the nearest node
-	
-	Returns
-	-------
-	int or tuple
-		corresponding node or tuple (int node, float distance)
-	"""
+        Return the nearest graph node to some specified point in UTM coordinates
+
+        Parameters
+        ----------
+        G : networkx multidigraph
+                input graph
+        point : tuple
+                the (x, y) point for which we will find the nearest node in the graph
+        return_dist : bool
+                optionally also return the distance between the point and the nearest node
+
+        Returns
+        -------
+        int or tuple
+                corresponding node or tuple (int node, float distance)
+        """
     # dump graph node coordinates into a pandas dataframe indexed by node id with x and y columns
     coords = np.array(
         [[node, data["x"], data["y"]] for node, data in G.nodes(data=True)]
@@ -52,28 +52,28 @@ def get_nearest_node_utm(G, point, return_dist=False):
 
 
 ##############################################
-### Accessibility indices calculation
+# Accessibility indices calculation
 ##############################################
 
 
 def get_count_activities_fixed_distance(G, point_ref, arguments):
-    """ 
-	Calculate accessibility value at point_ref according to chosen metric
-	If no graph node exists nearby input point reference, NaN is set
-	Based on counting the number of (activity) opportunities given a fixed maximum distance to travel
+    """
+        Calculate accessibility value at point_ref according to chosen metric
+        If no graph node exists nearby input point reference, NaN is set
+        Based on counting the number of (activity) opportunities given a fixed maximum distance to travel
 
-	Parameters
-	----------
-	G : networkx multidigraph
-		input graph to calculate accessibility
-	point_ref: shapely.Point
-		reference point to calculate accesisibility
+        Parameters
+        ----------
+        G : networkx multidigraph
+                input graph to calculate accessibility
+        point_ref: shapely.Point
+                reference point to calculate accesisibility
 
-	Returns
-	----------
-	int
-		returns the number of reached activities
-	"""
+        Returns
+        ----------
+        int
+                returns the number of reached activities
+        """
     # Find closest node to point_ref
     N0, distance = get_nearest_node_utm(
         G, point_ref.coords[0], return_dist=True
@@ -113,8 +113,8 @@ def get_count_activities_fixed_distance(G, point_ref, arguments):
 
         # Add to neighboring_nodes the neighbors of visited node
         for N_i in G.neighbors(N_visit):
-            if (not N_i in neighboring_nodes_id) and (
-                not N_i in visited_nodes
+            if (N_i not in neighboring_nodes_id) and (
+                N_i not in visited_nodes
             ):  # Not stored/visited already
                 # Store neighboring nodes, ordered by their distance cost
                 cost = shortest_path_length_N0_.get(N_i)
@@ -141,23 +141,23 @@ def get_count_activities_fixed_distance(G, point_ref, arguments):
 
 
 def get_minimum_cost_activities_travel(G, point_ref, arguments):
-    """ 
-	Calculate accessibility value at point_ref according to chosen metric
-	If no graph node exists nearby input point reference, NaN is set
-	Based on the minimum radius travel cost to accomplish a certain quantity of activities
+    """
+        Calculate accessibility value at point_ref according to chosen metric
+        If no graph node exists nearby input point reference, NaN is set
+        Based on the minimum radius travel cost to accomplish a certain quantity of activities
 
-	Parameters
-	----------
-	G : networkx multidigraph
-		input graph to calculate accessibility
-	point_ref: shapely.Point
-		reference point to calculate accessibility
+        Parameters
+        ----------
+        G : networkx multidigraph
+                input graph to calculate accessibility
+        point_ref: shapely.Point
+                reference point to calculate accessibility
 
-	Returns
-	----------
-	float
-		returns the computed radius cost length
-	"""
+        Returns
+        ----------
+        float
+                returns the computed radius cost length
+        """
     # Find closest node to point_ref
     N0, distance = get_nearest_node_utm(
         G, point_ref.coords[0], return_dist=True
@@ -183,8 +183,8 @@ def get_minimum_cost_activities_travel(G, point_ref, arguments):
 
         # Add to neighboring_nodes the neighbors of visited node
         for N_i in G.neighbors(N_visit):
-            if (not N_i in neighboring_nodes_id) and (
-                not N_i in visited_nodes
+            if (N_i not in neighboring_nodes_id) and (
+                N_i not in visited_nodes
             ):  # Not stored/visited already
                 # Store neighboring nodes, ordered by their distance cost
                 cost = nx.shortest_path_length(G, N0, N_i, weight="length")
@@ -209,18 +209,18 @@ def get_minimum_cost_activities_travel(G, point_ref, arguments):
 
 
 def main(argv):
-    """ 
-	Main program to drive the accessibility indices calculation
+    """
+        Main program to drive the accessibility indices calculation
 
-	Parameters
-	----------
-	argv : array
-		arguments to drive the calculation
+        Parameters
+        ----------
+        argv : array
+                arguments to drive the calculation
 
-	Returns
-	----------
+        Returns
+        ----------
 
-	"""
+        """
     start = time.time()
 
     # Load graph

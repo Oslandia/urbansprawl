@@ -1,7 +1,7 @@
-###################################################################################################
+###############
 # Repository: https://github.com/lgervasoni/urbansprawl
 # MIT License
-###################################################################################################
+###############
 
 import time
 import geopandas as gpd
@@ -14,7 +14,7 @@ import logging as lg
 import osmnx as ox
 
 #######################################################################
-### Buildings
+# Buildings
 #######################################################################
 
 
@@ -31,45 +31,53 @@ def create_buildings_gdf_from_input(
     east=None,
     west=None,
 ):
-    """ 
-	Retrieve OSM buildings according to input data
-	Queries data for input region (polygon, place, point/address and distance around, or bounding box coordinates)
-	Updates the used polygon/bounding box to determine the region of interest	
+    """
+        Retrieve OSM buildings according to input data
 
-	Parameters
-	----------
-	date : string
-		query the database at a certain timestamp
-	polygon : shapely Polygon or MultiPolygon
-		geographic shape to fetch the landuse footprints within
-	place : string or dict
-		query string or structured query dict to geocode/download
-	which_result : int
-		result number to retrieve from geocode/download when using query string 
-	point : tuple
-		the (lat, lon) central point around which to construct the graph
-	address : string
-		the address to geocode and use as the central point around which to construct the graph
-	distance : int
-		retain only those nodes within this many meters of the center of the graph
-	north : float
-		northern latitude of bounding box
-	south : float
-		southern latitude of bounding box
-	east : float
-		eastern longitude of bounding box
-	west : float
-		western longitude of bounding box
+        Queries data for input region (polygon, place, point/address and
+        distance around, or bounding box coordinates)
 
-	Returns
-	----------
-	[ geopandas.GeoDataFrame, shapely.Polygon, float, float, float, float ]
-		retrieved buildings, region of interest polygon, and region of interest bounding box
-	"""
+        Updates the used polygon/bounding box to determine the region of
+        interest
+
+        Parameters
+        ----------
+        date : string
+                query the database at a certain timestamp
+        polygon : shapely Polygon or MultiPolygon
+                geographic shape to fetch the landuse footprints within
+        place : string or dict
+                query string or structured query dict to geocode/download
+        which_result : int
+                result number to retrieve from geocode/download when using
+        query string
+        point : tuple
+                the (lat, lon) central point around which to construct the graph
+        address : string
+                the address to geocode and use as the central point around
+        which to construct the graph
+        distance : int
+                retain only those nodes within this many meters of the center
+        of the graph
+        north : float
+                northern latitude of bounding box
+        south : float
+                southern latitude of bounding box
+        east : float
+                eastern longitude of bounding box
+        west : float
+                western longitude of bounding box
+
+        Returns
+        ----------
+        [ geopandas.GeoDataFrame, shapely.Polygon, float, float, float, float ]
+                retrieved buildings, region of interest polygon, and region of
+        interest bounding box
+        """
     ##########################
-    ### Osmnx query: Buildings
+    # Osmnx query: Buildings
     ##########################
-    if not polygon is None:  # Polygon
+    if polygon is not None:  # Polygon
         log("Input type: Polygon")
         # If input geo data frame, extract polygon shape
         if type(polygon) is gpd.GeoDataFrame:
@@ -127,36 +135,36 @@ def osm_bldg_download(
     max_query_area_size=50 * 1000 * 50 * 1000,
 ):
     """
-	Download OpenStreetMap building footprint data.
-	Parameters
-	----------
-	date : string
-		query the database at a certain timestamp
-	polygon : shapely Polygon or MultiPolygon
-		geographic shape to fetch the building footprints within
-	north : float
-		northern latitude of bounding box
-	south : float
-		southern latitude of bounding box
-	east : float
-		eastern longitude of bounding box
-	west : float
-		western longitude of bounding box
-	timeout : int
-		the timeout interval for requests and to pass to API
-	memory : int
-		server memory allocation size for the query, in bytes. If none, server
-		will use its default allocation size
-	max_query_area_size : float
-		max area for any part of the geometry, in the units the geometry is in:
-		any polygon bigger will get divided up for multiple queries to API
-		(default is 50,000 * 50,000 units (ie, 50km x 50km in area, if units are
-		meters))
-	Returns
-	-------
-	list
-		list of response_json dicts
-	"""
+        Download OpenStreetMap building footprint data.
+        Parameters
+        ----------
+        date : string
+                query the database at a certain timestamp
+        polygon : shapely Polygon or MultiPolygon
+                geographic shape to fetch the building footprints within
+        north : float
+                northern latitude of bounding box
+        south : float
+                southern latitude of bounding box
+        east : float
+                eastern longitude of bounding box
+        west : float
+                western longitude of bounding box
+        timeout : int
+                the timeout interval for requests and to pass to API
+        memory : int
+                server memory allocation size for the query, in bytes. If none, server
+                will use its default allocation size
+        max_query_area_size : float
+                max area for any part of the geometry, in the units the geometry is in:
+                any polygon bigger will get divided up for multiple queries to API
+                (default is 50,000 * 50,000 units (ie, 50km x 50km in area, if units are
+                meters))
+        Returns
+        -------
+        list
+                list of response_json dicts
+        """
 
     # check if we're querying by polygon or by bounding box based on which
     # argument(s) where passed into this function
@@ -290,27 +298,27 @@ def create_buildings_gdf(
     retain_invalid=False,
 ):
     """
-	Get building footprint data from OSM then assemble it into a GeoDataFrame.
-	Parameters
-	----------
-	date : string
-		query the database at a certain timestamp
-	polygon : shapely Polygon or MultiPolygon
-		geographic shape to fetch the building footprints within
-	north : float
-		northern latitude of bounding box
-	south : float
-		southern latitude of bounding box
-	east : float
-		eastern longitude of bounding box
-	west : float
-		western longitude of bounding box
-	retain_invalid : bool
-		if False discard any building footprints with an invalid geometry
-	Returns
-	-------
-	GeoDataFrame
-	"""
+        Get building footprint data from OSM then assemble it into a GeoDataFrame.
+        Parameters
+        ----------
+        date : string
+                query the database at a certain timestamp
+        polygon : shapely Polygon or MultiPolygon
+                geographic shape to fetch the building footprints within
+        north : float
+                northern latitude of bounding box
+        south : float
+                southern latitude of bounding box
+        east : float
+                eastern longitude of bounding box
+        west : float
+                western longitude of bounding box
+        retain_invalid : bool
+                if False discard any building footprints with an invalid geometry
+        Returns
+        -------
+        GeoDataFrame
+        """
 
     responses = osm_bldg_download(date, polygon, north, south, east, west)
 
@@ -357,22 +365,22 @@ def create_buildings_gdf(
 
 def buildings_from_point(date, point, distance, retain_invalid=False):
     """
-	Get building footprints within some distance north, south, east, and west of
-	a lat-long point.
-	Parameters
-	----------
-	date : string
-		query the database at a certain timestamp
-	point : tuple
-		a lat-long point
-	distance : numeric
-		distance in meters
-	retain_invalid : bool
-		if False discard any building footprints with an invalid geometry
-	Returns
-	-------
-	GeoDataFrame
-	"""
+        Get building footprints within some distance north, south, east, and west of
+        a lat-long point.
+        Parameters
+        ----------
+        date : string
+                query the database at a certain timestamp
+        point : tuple
+                a lat-long point
+        distance : numeric
+                distance in meters
+        retain_invalid : bool
+                if False discard any building footprints with an invalid geometry
+        Returns
+        -------
+        GeoDataFrame
+        """
 
     bbox = ox.bbox_from_point(point=point, distance=distance)
     north, south, east, west = bbox
@@ -388,22 +396,22 @@ def buildings_from_point(date, point, distance, retain_invalid=False):
 
 def buildings_from_address(date, address, distance, retain_invalid=False):
     """
-	Get building footprints within some distance north, south, east, and west of
-	an address.
-	Parameters
-	----------
-	date : string
-		query the database at a certain timestamp
-	address : string
-		the address to geocode to a lat-long point
-	distance : numeric
-		distance in meters
-	retain_invalid : bool
-		if False discard any building footprints with an invalid geometry
-	Returns
-	-------
-	GeoDataFrame
-	"""
+        Get building footprints within some distance north, south, east, and west of
+        an address.
+        Parameters
+        ----------
+        date : string
+                query the database at a certain timestamp
+        address : string
+                the address to geocode to a lat-long point
+        distance : numeric
+                distance in meters
+        retain_invalid : bool
+                if False discard any building footprints with an invalid geometry
+        Returns
+        -------
+        GeoDataFrame
+        """
 
     # geocode the address string to a (lat, lon) point
     point = ox.geocode(query=address)
@@ -416,18 +424,18 @@ def buildings_from_address(date, address, distance, retain_invalid=False):
 
 def buildings_from_polygon(date, polygon, retain_invalid=False):
     """
-	Get building footprints within some polygon.
-	Parameters
-	----------
-	date : string
-		query the database at a certain timestamp
-	polygon : Polygon
-	retain_invalid : bool
-		if False discard any building footprints with an invalid geometry
-	Returns
-	-------
-	GeoDataFrame
-	"""
+        Get building footprints within some polygon.
+        Parameters
+        ----------
+        date : string
+                query the database at a certain timestamp
+        polygon : Polygon
+        retain_invalid : bool
+                if False discard any building footprints with an invalid geometry
+        Returns
+        -------
+        GeoDataFrame
+        """
 
     return create_buildings_gdf(
         date=date, polygon=polygon, retain_invalid=retain_invalid
@@ -436,21 +444,21 @@ def buildings_from_polygon(date, polygon, retain_invalid=False):
 
 def buildings_from_place(date, place, which_result=1, retain_invalid=False):
     """
-	Get building footprints within the boundaries of some place.
-	Parameters
-	----------
-	date : string
-		query the database at a certain timestamp
-	place : string
-		the query to geocode to get geojson boundary polygon
-	which_result : int
-		result number to retrieve from geocode/download when using query string 
-	retain_invalid : bool
-		if False discard any building footprints with an invalid geometry
-	Returns
-	-------
-	GeoDataFrame
-	"""
+        Get building footprints within the boundaries of some place.
+        Parameters
+        ----------
+        date : string
+                query the database at a certain timestamp
+        place : string
+                the query to geocode to get geojson boundary polygon
+        which_result : int
+                result number to retrieve from geocode/download when using query string
+        retain_invalid : bool
+                if False discard any building footprints with an invalid geometry
+        Returns
+        -------
+        GeoDataFrame
+        """
     city = ox.gdf_from_place(place, which_result=which_result)
     polygon = city["geometry"].iloc[0]
     return create_buildings_gdf(
@@ -459,7 +467,7 @@ def buildings_from_place(date, place, which_result=1, retain_invalid=False):
 
 
 #######################################################################
-### Street network graph
+# Street network graph
 #######################################################################
 
 
@@ -473,42 +481,42 @@ def retrieve_route_graph(
     west=None,
     force_crs=None,
 ):
-    """ 
-	Retrieves street network graph for given `city_ref`
-	Loads the data if stored locally
-	Otherwise, it retrieves the graph from OpenStreetMap using the osmnx package
-	Input polygon or bounding box coordinates determine the region of interest
+    """
+        Retrieves street network graph for given `city_ref`
+        Loads the data if stored locally
+        Otherwise, it retrieves the graph from OpenStreetMap using the osmnx package
+        Input polygon or bounding box coordinates determine the region of interest
 
-	Parameters
-	----------
-	city_ref : string
-		name of the city
-	date : string
-		query the database at a certain timestamp
-	polygon : shapely.Polygon
-		polygon shape of input city
-	north : float
-		northern latitude of bounding box
-	south : float
-		southern latitude of bounding box
-	east : float
-		eastern longitude of bounding box
-	west : float
-		western longitude of bounding box
-	force_crs : dict
-		graph will be projected to input crs
+        Parameters
+        ----------
+        city_ref : string
+                name of the city
+        date : string
+                query the database at a certain timestamp
+        polygon : shapely.Polygon
+                polygon shape of input city
+        north : float
+                northern latitude of bounding box
+        south : float
+                southern latitude of bounding box
+        east : float
+                eastern longitude of bounding box
+        west : float
+                western longitude of bounding box
+        force_crs : dict
+                graph will be projected to input crs
 
-	Returns
-	----------
-	networkx.multidigraph
-		projected graph
-	"""
+        Returns
+        ----------
+        networkx.multidigraph
+                projected graph
+        """
     try:
         G = ox.load_graphml(city_ref + "_network.graphml")
         log("Found graph for `" + city_ref + "` stored locally")
-    except:
+    except Exception:
         try:
-            if not polygon is None:
+            if polygon is not None:
                 G = graph_from_polygon(
                     polygon, network_type="drive_service", date=date
                 )
@@ -528,7 +536,7 @@ def retrieve_route_graph(
                 # Set graph name
             G.graph["name"] = (
                 str(city_ref) + "_street_network"
-                if not city_ref is None
+                if city_ref is not None
                 else "street_network"
             )
 
@@ -559,44 +567,44 @@ def graph_from_polygon(
     infrastructure='way["highway"]',
 ):
     """
-	Create a networkx graph from OSM data within the spatial boundaries of the
-	passed-in shapely polygon.
-	Parameters
-	----------
-	polygon : shapely Polygon or MultiPolygon
-		the shape to get network data within. coordinates should be in units of
-		latitude-longitude degrees.
-	network_type : string
-		what type of street network to get
-	simplify : bool
-		if true, simplify the graph topology
-	retain_all : bool
-		if True, return the entire graph even if it is not connected
-	truncate_by_edge : bool
-		if True retain node if it's outside bbox but at least one of node's
-		neighbors are within bbox
-	name : string
-		the name of the graph
-	timeout : int
-		the timeout interval for requests and to pass to API
-	memory : int
-		server memory allocation size for the query, in bytes. If none, server
-		will use its default allocation size
-	date : string
-		query the database at a certain timestamp
-	max_query_area_size : float
-		max size for any part of the geometry, in square degrees: any polygon
-		bigger will get divided up for multiple queries to API
-	clean_periphery : bool
-		if True (and simplify=True), buffer 0.5km to get a graph larger than
-		requested, then simplify, then truncate it to requested spatial extent
-	infrastructure : string
-		download infrastructure of given type (default is streets (ie, 'way["highway"]') but other
-		infrastructures may be selected like power grids (ie, 'way["power"~"line"]'))
-	Returns
-	-------
-	networkx multidigraph
-	"""
+        Create a networkx graph from OSM data within the spatial boundaries of the
+        passed-in shapely polygon.
+        Parameters
+        ----------
+        polygon : shapely Polygon or MultiPolygon
+                the shape to get network data within. coordinates should be in units of
+                latitude-longitude degrees.
+        network_type : string
+                what type of street network to get
+        simplify : bool
+                if true, simplify the graph topology
+        retain_all : bool
+                if True, return the entire graph even if it is not connected
+        truncate_by_edge : bool
+                if True retain node if it's outside bbox but at least one of node's
+                neighbors are within bbox
+        name : string
+                the name of the graph
+        timeout : int
+                the timeout interval for requests and to pass to API
+        memory : int
+                server memory allocation size for the query, in bytes. If none, server
+                will use its default allocation size
+        date : string
+                query the database at a certain timestamp
+        max_query_area_size : float
+                max size for any part of the geometry, in square degrees: any polygon
+                bigger will get divided up for multiple queries to API
+        clean_periphery : bool
+                if True (and simplify=True), buffer 0.5km to get a graph larger than
+                requested, then simplify, then truncate it to requested spatial extent
+        infrastructure : string
+                download infrastructure of given type (default is streets (ie, 'way["highway"]') but other
+                infrastructures may be selected like power grids (ie, 'way["power"~"line"]'))
+        Returns
+        -------
+        networkx multidigraph
+        """
 
     # verify that the geometry is valid and is a shapely Polygon/MultiPolygon
     # before proceeding
@@ -719,48 +727,48 @@ def graph_from_bbox(
     infrastructure='way["highway"]',
 ):
     """
-	Create a networkx graph from OSM data within some bounding box.
-	Parameters
-	----------
-	north : float
-		northern latitude of bounding box
-	south : float
-		southern latitude of bounding box
-	east : float
-		eastern longitude of bounding box
-	west : float
-		western longitude of bounding box
-	network_type : string
-		what type of street network to get
-	simplify : bool
-		if true, simplify the graph topology
-	retain_all : bool
-		if True, return the entire graph even if it is not connected
-	truncate_by_edge : bool
-		if True retain node if it's outside bbox but at least one of node's
-		neighbors are within bbox
-	name : string
-		the name of the graph
-	timeout : int
-		the timeout interval for requests and to pass to API
-	memory : int
-		server memory allocation size for the query, in bytes. If none, server
-		will use its default allocation size
-	date : string
-		query the database at a certain timestamp
-	max_query_area_size : float
-		max size for any part of the geometry, in square degrees: any polygon
-		bigger will get divided up for multiple queries to API
-	clean_periphery : bool
-		if True (and simplify=True), buffer 0.5km to get a graph larger than
-		requested, then simplify, then truncate it to requested spatial extent
-	infrastructure : string
-		download infrastructure of given type (default is streets (ie, 'way["highway"]') but other
-		infrastructures may be selected like power grids (ie, 'way["power"~"line"]'))
-	Returns
-	-------
-	networkx multidigraph
-	"""
+        Create a networkx graph from OSM data within some bounding box.
+        Parameters
+        ----------
+        north : float
+                northern latitude of bounding box
+        south : float
+                southern latitude of bounding box
+        east : float
+                eastern longitude of bounding box
+        west : float
+                western longitude of bounding box
+        network_type : string
+                what type of street network to get
+        simplify : bool
+                if true, simplify the graph topology
+        retain_all : bool
+                if True, return the entire graph even if it is not connected
+        truncate_by_edge : bool
+                if True retain node if it's outside bbox but at least one of node's
+                neighbors are within bbox
+        name : string
+                the name of the graph
+        timeout : int
+                the timeout interval for requests and to pass to API
+        memory : int
+                server memory allocation size for the query, in bytes. If none, server
+                will use its default allocation size
+        date : string
+                query the database at a certain timestamp
+        max_query_area_size : float
+                max size for any part of the geometry, in square degrees: any polygon
+                bigger will get divided up for multiple queries to API
+        clean_periphery : bool
+                if True (and simplify=True), buffer 0.5km to get a graph larger than
+                requested, then simplify, then truncate it to requested spatial extent
+        infrastructure : string
+                download infrastructure of given type (default is streets (ie, 'way["highway"]') but other
+                infrastructures may be selected like power grids (ie, 'way["power"~"line"]'))
+        Returns
+        -------
+        networkx multidigraph
+        """
 
     if clean_periphery and simplify:
         # create a new buffered bbox 0.5km around the desired one
@@ -889,42 +897,42 @@ def osm_net_download(
     infrastructure='way["highway"]',
 ):
     """
-	Download OSM ways and nodes within some bounding box from the Overpass API.
-	Parameters
-	----------
-	polygon : shapely Polygon or MultiPolygon
-		geographic shape to fetch the street network within
-	north : float
-		northern latitude of bounding box
-	south : float
-		southern latitude of bounding box
-	east : float
-		eastern longitude of bounding box
-	west : float
-		western longitude of bounding box
-	network_type : string
-		{'walk', 'bike', 'drive', 'drive_service', 'all', 'all_private'} what
-		type of street network to get
-	timeout : int
-		the timeout interval for requests and to pass to API
-	memory : int
-		server memory allocation size for the query, in bytes. If none, server
-		will use its default allocation size
-	date : string
-		query the database at a certain timestamp
-	max_query_area_size : float
-		max area for any part of the geometry, in the units the geometry is in:
-		any polygon bigger will get divided up for multiple queries to API
-		(default is 50,000 * 50,000 units [ie, 50km x 50km in area, if units are
-		meters])
-	infrastructure : string
-		download infrastructure of given type. default is streets, ie,
-		'way["highway"]') but other infrastructures may be selected like power
-		grids, ie, 'way["power"~"line"]'
-	Returns
-	-------
-	response_jsons : list
-	"""
+        Download OSM ways and nodes within some bounding box from the Overpass API.
+        Parameters
+        ----------
+        polygon : shapely Polygon or MultiPolygon
+                geographic shape to fetch the street network within
+        north : float
+                northern latitude of bounding box
+        south : float
+                southern latitude of bounding box
+        east : float
+                eastern longitude of bounding box
+        west : float
+                western longitude of bounding box
+        network_type : string
+                {'walk', 'bike', 'drive', 'drive_service', 'all', 'all_private'} what
+                type of street network to get
+        timeout : int
+                the timeout interval for requests and to pass to API
+        memory : int
+                server memory allocation size for the query, in bytes. If none, server
+                will use its default allocation size
+        date : string
+                query the database at a certain timestamp
+        max_query_area_size : float
+                max area for any part of the geometry, in the units the geometry is in:
+                any polygon bigger will get divided up for multiple queries to API
+                (default is 50,000 * 50,000 units [ie, 50km x 50km in area, if units are
+                meters])
+        infrastructure : string
+                download infrastructure of given type. default is streets, ie,
+                'way["highway"]') but other infrastructures may be selected like power
+                grids, ie, 'way["power"~"line"]'
+        Returns
+        -------
+        response_jsons : list
+        """
 
     # check if we're querying by polygon or by bounding box based on which
     # argument(s) where passed into this function
@@ -988,7 +996,9 @@ def osm_net_download(
             west, south, east, north = poly.bounds
             query_template = (
                 date
-                + "[out:json][timeout:{timeout}]{maxsize};({infrastructure}{filters}({south:.8f},{west:.8f},{north:.8f},{east:.8f});>;);out;"
+                + "[out:json][timeout:{timeout}]{maxsize};"
+                + "({infrastructure}{filters}"
+                + "({south:.8f},{west:.8f},{north:.8f},{east:.8f});>;);out;"
             )
             query_str = query_template.format(
                 north=north,
@@ -1059,7 +1069,7 @@ def osm_net_download(
 
 
 #######################################################################
-### Land use
+# Land use
 #######################################################################
 
 
@@ -1075,36 +1085,36 @@ def osm_landuse_download(
     max_query_area_size=50 * 1000 * 50 * 1000,
 ):
     """
-	Download OpenStreetMap landuse footprint data.
-	Parameters
-	----------
-	date : string
-		query the database at a certain timestamp
-	polygon : shapely Polygon or MultiPolygon
-		geographic shape to fetch the landuse footprints within
-	north : float
-		northern latitude of bounding box
-	south : float
-		southern latitude of bounding box
-	east : float
-		eastern longitude of bounding box
-	west : float
-		western longitude of bounding box
-	timeout : int
-		the timeout interval for requests and to pass to API
-	memory : int
-		server memory allocation size for the query, in bytes. If none, server
-		will use its default allocation size
-	max_query_area_size : float
-		max area for any part of the geometry, in the units the geometry is in:
-		any polygon bigger will get divided up for multiple queries to API
-		(default is 50,000 * 50,000 units (ie, 50km x 50km in area, if units are
-		meters))
-	Returns
-	-------
-	list
-		list of response_json dicts
-	"""
+        Download OpenStreetMap landuse footprint data.
+        Parameters
+        ----------
+        date : string
+                query the database at a certain timestamp
+        polygon : shapely Polygon or MultiPolygon
+                geographic shape to fetch the landuse footprints within
+        north : float
+                northern latitude of bounding box
+        south : float
+                southern latitude of bounding box
+        east : float
+                eastern longitude of bounding box
+        west : float
+                western longitude of bounding box
+        timeout : int
+                the timeout interval for requests and to pass to API
+        memory : int
+                server memory allocation size for the query, in bytes. If none, server
+                will use its default allocation size
+        max_query_area_size : float
+                max area for any part of the geometry, in the units the geometry is in:
+                any polygon bigger will get divided up for multiple queries to API
+                (default is 50,000 * 50,000 units (ie, 50km x 50km in area, if units are
+                meters))
+        Returns
+        -------
+        list
+                list of response_json dicts
+        """
 
     # check if we're querying by polygon or by bounding box based on which
     # argument(s) where passed into this function
@@ -1238,27 +1248,27 @@ def create_landuse_gdf(
     retain_invalid=False,
 ):
     """
-	Get landuse footprint data from OSM then assemble it into a GeoDataFrame.
-	Parameters
-	----------
-	date : string
-		query the database at a certain timestamp
-	polygon : shapely Polygon or MultiPolygon
-		geographic shape to fetch the landuse footprints within
-	north : float
-		northern latitude of bounding box
-	south : float
-		southern latitude of bounding box
-	east : float
-		eastern longitude of bounding box
-	west : float
-		western longitude of bounding box
-	retain_invalid : bool
-		if False discard any landuse footprints with an invalid geometry
-	Returns
-	-------
-	GeoDataFrame
-	"""
+        Get landuse footprint data from OSM then assemble it into a GeoDataFrame.
+        Parameters
+        ----------
+        date : string
+                query the database at a certain timestamp
+        polygon : shapely Polygon or MultiPolygon
+                geographic shape to fetch the landuse footprints within
+        north : float
+                northern latitude of bounding box
+        south : float
+                southern latitude of bounding box
+        east : float
+                eastern longitude of bounding box
+        west : float
+                western longitude of bounding box
+        retain_invalid : bool
+                if False discard any landuse footprints with an invalid geometry
+        Returns
+        -------
+        GeoDataFrame
+        """
 
     responses = osm_landuse_download(date, polygon, north, south, east, west)
 
@@ -1304,7 +1314,7 @@ def create_landuse_gdf(
 
 
 #######################################################################
-### Points of interest
+# Points of interest
 #######################################################################
 
 
@@ -1320,36 +1330,36 @@ def osm_pois_download(
     max_query_area_size=50 * 1000 * 50 * 1000,
 ):
     """
-	Download OpenStreetMap POIs footprint data.
-	Parameters
-	----------
-	date : string
-		query the database at a certain timestamp
-	polygon : shapely Polygon or MultiPolygon
-		geographic shape to fetch the POIs footprints within
-	north : float
-		northern latitude of bounding box
-	south : float
-		southern latitude of bounding box
-	east : float
-		eastern longitude of bounding box
-	west : float
-		western longitude of bounding box
-	timeout : int
-		the timeout interval for requests and to pass to API
-	memory : int
-		server memory allocation size for the query, in bytes. If none, server
-		will use its default allocation size
-	max_query_area_size : float
-		max area for any part of the geometry, in the units the geometry is in:
-		any polygon bigger will get divided up for multiple queries to API
-		(default is 50,000 * 50,000 units (ie, 50km x 50km in area, if units are
-		meters))
-	Returns
-	-------
-	list
-		list of response_json dicts
-	"""
+        Download OpenStreetMap POIs footprint data.
+        Parameters
+        ----------
+        date : string
+                query the database at a certain timestamp
+        polygon : shapely Polygon or MultiPolygon
+                geographic shape to fetch the POIs footprints within
+        north : float
+                northern latitude of bounding box
+        south : float
+                southern latitude of bounding box
+        east : float
+                eastern longitude of bounding box
+        west : float
+                western longitude of bounding box
+        timeout : int
+                the timeout interval for requests and to pass to API
+        memory : int
+                server memory allocation size for the query, in bytes. If none, server
+                will use its default allocation size
+        max_query_area_size : float
+                max area for any part of the geometry, in the units the geometry is in:
+                any polygon bigger will get divided up for multiple queries to API
+                (default is 50,000 * 50,000 units (ie, 50km x 50km in area, if units are
+                meters))
+        Returns
+        -------
+        list
+                list of response_json dicts
+        """
 
     # check if we're querying by polygon or by bounding box based on which
     # argument(s) where passed into this function
@@ -1491,27 +1501,27 @@ def create_pois_gdf(
     retain_invalid=False,
 ):
     """
-	Get POIs footprint data from OSM then assemble it into a GeoDataFrame.
-	Parameters
-	----------
-	date : string
-		query the database at a certain timestamp
-	polygon : shapely Polygon or MultiPolygon
-		geographic shape to fetch the POIs footprints within
-	north : float
-		northern latitude of bounding box
-	south : float
-		southern latitude of bounding box
-	east : float
-		eastern longitude of bounding box
-	west : float
-		western longitude of bounding box
-	retain_invalid : bool
-		if False discard any POIs footprints with an invalid geometry
-	Returns
-	-------
-	GeoDataFrame
-	"""
+        Get POIs footprint data from OSM then assemble it into a GeoDataFrame.
+        Parameters
+        ----------
+        date : string
+                query the database at a certain timestamp
+        polygon : shapely Polygon or MultiPolygon
+                geographic shape to fetch the POIs footprints within
+        north : float
+                northern latitude of bounding box
+        south : float
+                southern latitude of bounding box
+        east : float
+                eastern longitude of bounding box
+        west : float
+                western longitude of bounding box
+        retain_invalid : bool
+                if False discard any POIs footprints with an invalid geometry
+        Returns
+        -------
+        GeoDataFrame
+        """
 
     responses = osm_pois_download(date, polygon, north, south, east, west)
 
@@ -1537,7 +1547,7 @@ def create_pois_gdf(
         try:
             # drop all invalid geometries
             gdf = gdf[gdf["geometry"].is_valid]
-        except:  # Empty data frame
+        except KeyError:  # Empty data frame
             # Create a one-row data frame with null information (avoid later Spatial-Join crash)
             if polygon is not None:  # Polygon given
                 point = polygon.centroid
@@ -1550,7 +1560,7 @@ def create_pois_gdf(
 
 
 #######################################################################
-### OSM Building parts
+# OSM Building parts
 #######################################################################
 
 
@@ -1566,36 +1576,36 @@ def osm_bldg_part_download(
     max_query_area_size=50 * 1000 * 50 * 1000,
 ):
     """
-	Download OpenStreetMap building parts footprint data.
-	Parameters
-	----------
-	date : string
-		query the database at a certain timestamp
-	polygon : shapely Polygon or MultiPolygon
-		geographic shape to fetch the building footprints within
-	north : float
-		northern latitude of bounding box
-	south : float
-		southern latitude of bounding box
-	east : float
-		eastern longitude of bounding box
-	west : float
-		western longitude of bounding box
-	timeout : int
-		the timeout interval for requests and to pass to API
-	memory : int
-		server memory allocation size for the query, in bytes. If none, server
-		will use its default allocation size
-	max_query_area_size : float
-		max area for any part of the geometry, in the units the geometry is in:
-		any polygon bigger will get divided up for multiple queries to API
-		(default is 50,000 * 50,000 units (ie, 50km x 50km in area, if units are
-		meters))
-	Returns
-	-------
-	list
-		list of response_json dicts
-	"""
+        Download OpenStreetMap building parts footprint data.
+        Parameters
+        ----------
+        date : string
+                query the database at a certain timestamp
+        polygon : shapely Polygon or MultiPolygon
+                geographic shape to fetch the building footprints within
+        north : float
+                northern latitude of bounding box
+        south : float
+                southern latitude of bounding box
+        east : float
+                eastern longitude of bounding box
+        west : float
+                western longitude of bounding box
+        timeout : int
+                the timeout interval for requests and to pass to API
+        memory : int
+                server memory allocation size for the query, in bytes. If none, server
+                will use its default allocation size
+        max_query_area_size : float
+                max area for any part of the geometry, in the units the geometry is in:
+                any polygon bigger will get divided up for multiple queries to API
+                (default is 50,000 * 50,000 units (ie, 50km x 50km in area, if units are
+                meters))
+        Returns
+        -------
+        list
+                list of response_json dicts
+        """
 
     # check if we're querying by polygon or by bounding box based on which
     # argument(s) where passed into this function
@@ -1729,29 +1739,33 @@ def create_building_parts_gdf(
     retain_invalid=False,
 ):
     """
-	Get building footprint data from OSM then assemble it into a GeoDataFrame.
-	If no building parts are retrieved, a default (null-data) point located at the centroid of the region of interest is created
+        Get building footprint data from OSM then assemble it into a
+    GeoDataFrame.
 
-	Parameters
-	----------
-	date : string
-		query the database at a certain timestamp
-	polygon : shapely Polygon or MultiPolygon
-		geographic shape to fetch the building footprints within
-	north : float
-		northern latitude of bounding box
-	south : float
-		southern latitude of bounding box
-	east : float
-		eastern longitude of bounding box
-	west : float
-		western longitude of bounding box
-	retain_invalid : bool
-		if False discard any building footprints with an invalid geometry
-	Returns
-	-------
-	GeoDataFrame
-	"""
+        If no building parts are retrieved, a default (null-data) point located
+        at the centroid of the region of interest is created
+
+        Parameters
+        ----------
+        date : string
+                query the database at a certain timestamp
+        polygon : shapely Polygon or MultiPolygon
+                geographic shape to fetch the building footprints within
+        north : float
+                northern latitude of bounding box
+        south : float
+                southern latitude of bounding box
+        east : float
+                eastern longitude of bounding box
+        west : float
+                western longitude of bounding box
+        retain_invalid : bool
+                if False discard any building footprints with an invalid
+        geometry
+        Returns
+        -------
+        GeoDataFrame
+        """
 
     responses = osm_bldg_part_download(date, polygon, north, south, east, west)
 
@@ -1793,8 +1807,9 @@ def create_building_parts_gdf(
         try:
             # drop all invalid geometries
             gdf = gdf[gdf["geometry"].is_valid]
-        except:  # Empty data frame
-            # Create a one-row data frame with null information (avoid later Spatial-Join crash)
+        except KeyError:  # Empty data frame
+            # Create a one-row data frame with null information
+            # (avoid later Spatial-Join crash)
             if polygon is not None:  # Polygon given
                 point = polygon.centroid
             else:  # Bounding box

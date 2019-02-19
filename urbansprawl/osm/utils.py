@@ -1,7 +1,7 @@
-###################################################################################################
+###############
 # Repository: https://github.com/lgervasoni/urbansprawl
 # MIT License
-###################################################################################################
+###############
 
 import osmnx as ox
 import pandas as pd
@@ -17,25 +17,25 @@ geo_format = "geojson"  # 'shp'
 geo_driver = "GeoJSON"  # 'ESRI Shapefile'
 
 ###################################################
-### I/O utils
+# I/O utils
 ###################################################
 
 
 def get_dataframes_filenames(city_ref_file):
     """
-	Get data frame file names for input city
+        Get data frame file names for input city
 
-	Parameters
-	----------
-	city_ref_file : string
-		name of input city
+        Parameters
+        ----------
+        city_ref_file : string
+                name of input city
 
-	Returns
-	----------
-	[ string, string, string ]
-		returns filenames for buildings, building parts, and points of interest
-	
-	"""
+        Returns
+        ----------
+        [ string, string, string ]
+                returns filenames for buildings, building parts, and points of
+        interest
+        """
     import os
 
     if not (os.path.isdir(storage_folder)):
@@ -53,20 +53,20 @@ def get_dataframes_filenames(city_ref_file):
 
 
 def load_geodataframe(geo_filename):
-    """ 
-	Load input GeoDataFrame
+    """
+        Load input GeoDataFrame
 
-	Parameters
-	----------
-	geo_filename : string
-		input GeoDataFrame filename
+        Parameters
+        ----------
+        geo_filename : string
+                input GeoDataFrame filename
 
-	Returns
-	----------
-	geopandas.GeoDataFrame
-		loaded data
+        Returns
+        ----------
+        geopandas.GeoDataFrame
+                loaded data
 
-	"""
+        """
     # Load using geopandas
     df_osm_data = gpd.read_file(geo_filename)
     # Set None as NaN
@@ -104,20 +104,20 @@ def load_geodataframe(geo_filename):
 
 
 def store_geodataframe(df_osm_data, geo_filename):
-    """ 
-	Store input GeoDataFrame
+    """
+        Store input GeoDataFrame
 
-	Parameters
-	----------
-	df_osm_data : geopandas.GeoDataFrame
-		input OSM data frame
-	geo_filename : string
-		filename for GeoDataFrame storage
+        Parameters
+        ----------
+        df_osm_data : geopandas.GeoDataFrame
+                input OSM data frame
+        geo_filename : string
+                filename for GeoDataFrame storage
 
-	Returns
-	----------
-	
-	"""
+        Returns
+        ----------
+
+        """
     # To EPSG 4326 (GeoJSON does not store projection information)
     df_osm_data = ox.project_gdf(df_osm_data, to_latlong=True)
 
@@ -146,32 +146,35 @@ def store_geodataframe(df_osm_data, geo_filename):
 
 
 ###################################################
-### GeoDataFrame processing utils
+# GeoDataFrame processing utils
 ###################################################
 
 
 def sanity_check_height_tags(df_osm):
-    """ 
-	Compute a sanity check for all height tags
-	If incorrectly tagged, try to replace with the correct tag
-	Any meter or level related string are replaced, and heights using the imperial units are converted to the metric system
+    """
+        Compute a sanity check for all height tags
 
-	Parameters
-	----------
-	df_osm : geopandas.GeoDataFrame
-		input OSM data frame
+        If incorrectly tagged, try to replace with the correct tag
 
-	Returns
-	----------
-	
-	"""
+        Any meter or level related string are replaced, and heights using the
+        imperial units are converted to the metric system
+
+        Parameters
+        ----------
+        df_osm : geopandas.GeoDataFrame
+                input OSM data frame
+
+        Returns
+        ----------
+
+        """
 
     def sanity_check(value):
-        ### Sanity check for height tags (sometimes wrongly-tagged)
+        # Sanity check for height tags (sometimes wrongly-tagged)
         if not ((value is np.nan) or (value is None)):  # Non-null value
             try:  # Can be read as float?
                 return float(value)
-            except:
+            except ValueError:
                 try:  # Try removing incorrectly tagged information: meters/levels
                     return float(
                         value.replace("meters", "")
@@ -181,7 +184,7 @@ def sanity_check_height_tags(df_osm):
                         .replace("level", "")
                         .replace("l", "")
                     )
-                except:
+                except ValueError:
                     try:  # Feet and inch values? e.g.: 4'7''
                         split_value = value.split("'")
                         feet, inches = split_value[0], split_value[1]
@@ -190,7 +193,7 @@ def sanity_check_height_tags(df_osm):
                         tot_inches = float(feet) * 12 + float(inches)
                         # Return meters equivalent
                         return tot_inches * 0.0254
-                    except:  # None. Incorrect tag
+                    except TypeError:  # None. Incorrect tag
                         return None
         return value
 
@@ -211,26 +214,26 @@ def associate_structures(
     operation="contains",
     column="containing_",
 ):
-    """ 
-	Associate input structure geometries to its encompassing structures
-	Structures are associated using the operation 'contains' or 'intersects'
-	A new column in the encompassing data frame is added, incorporating the indices of the containing structures
+    """
+        Associate input structure geometries to its encompassing structures
+        Structures are associated using the operation 'contains' or 'intersects'
+        A new column in the encompassing data frame is added, incorporating the indices of the containing structures
 
-	Parameters
-	----------
-	df_osm_encompassing_structures : geopandas.GeoDataFrame
-		encompassing data frame
-	df_osm_structures : geopandas.GeoDataFrame
-		structures data frame
-	operation : string
-		spatial join operation to associate structures
-	column : string
-		name of the column to add in encompassing data frame
+        Parameters
+        ----------
+        df_osm_encompassing_structures : geopandas.GeoDataFrame
+                encompassing data frame
+        df_osm_structures : geopandas.GeoDataFrame
+                structures data frame
+        operation : string
+                spatial join operation to associate structures
+        column : string
+                name of the column to add in encompassing data frame
 
-	Returns
-	----------
-	
-	"""
+        Returns
+        ----------
+
+        """
     # Find, for each geometry, all containing structures
     sjoin = gpd.sjoin(
         df_osm_encompassing_structures[["geometry"]],

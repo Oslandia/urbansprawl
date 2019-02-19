@@ -1,7 +1,7 @@
-###################################################################################################
+###############
 # Repository: https://github.com/lgervasoni/urbansprawl
 # MIT License
-###################################################################################################
+###############
 
 # Height tags
 height_tags = [
@@ -32,17 +32,18 @@ columns_osm_tag = [
 building_parts_to_filter = ["no", "roof"]
 
 #################################################################
-### Classify uses according to OpenStreetMap wiki
+# Classify uses according to OpenStreetMap wiki
 #################################################################
 """
 Possible tags classification:
-	residential: Defines a residential land use
-	activity: Defines any activity land use
-	other: Defines any non-residential and non-activity use
-	infer: Defines any condition where an inference needs to be done (using land use polygons containing them)
+        residential: Defines a residential land use
+        activity: Defines any activity land use
+        other: Defines any non-residential and non-activity use
+        infer: Defines any condition where an inference needs to be done (using
+land use polygons containing them)
 
-Possible activities classifications: 
-	shop, leisure/amenity, commercial/industrial
+Possible activities classifications:
+        shop, leisure/amenity, commercial/industrial
 """
 
 #################################################################
@@ -58,7 +59,7 @@ activity_classification = {
 }
 
 #############
-### Amenity
+# Amenity
 #############
 amenities_sustenance = [
     "bar",
@@ -150,7 +151,7 @@ key_classification["activity_amenity"] = amenities_activities
 activity_classification["leisure/amenity"] += amenities_activities
 
 #############
-### Shop
+# Shop
 #############
 shop_other = [
     "bookmaker",
@@ -328,9 +329,11 @@ key_classification["activity_shop"] = shop_activities
 activity_classification["shop"] += shop_activities
 
 #############
-### Leisure
+# Leisure
 #############
-# Not tagged as activity: dog_park, bird_hide, bandstand, firepit, fishing, garden, golf_course, marina, nature_reserve, park, playground, slipway, track, wildlife_hide
+# Not tagged as activity:
+# dog_park, bird_hide, bandstand, firepit, fishing, garden, golf_course,
+# marina, nature_reserve, park, playground, slipway, track, wildlife_hide
 leisure_activies = [
     "adult_gaming_centre",
     "amusement_arcade",
@@ -356,7 +359,7 @@ key_classification["activity_leisure"] = leisure_activies
 activity_classification["leisure/amenity"] += leisure_activies
 
 #############
-### Man made
+# Man made
 #############
 man_made_activities = [
     "offshore_platform",
@@ -417,7 +420,7 @@ key_classification["other_man_made"] = man_made_other
 activity_classification["commercial/industrial"] += man_made_activities
 
 #############
-### Building
+# Building
 #############
 building_infer = ["yes"]
 building_other = [
@@ -506,19 +509,19 @@ activity_classification["leisure/amenity"] += building_civic_amenity
 activity_classification["shop"] += building_shop
 
 #############
-### Building:use
+# Building:use
 #############
 key_classification["activity_building:use"] = building_activities
 key_classification["residential_building:use"] = building_residential
 
 #############
-### Building:part
+# Building:part
 #############
 key_classification["activity_building:part"] = building_activities
 key_classification["residential_building:part"] = building_residential
 
 #############
-### Land use
+# Land use
 #############
 landuse_activities = (
     building_activities

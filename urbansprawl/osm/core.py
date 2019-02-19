@@ -1,7 +1,7 @@
-###################################################################################################
+###############
 # Repository: https://github.com/lgervasoni/urbansprawl
 # MIT License
-###################################################################################################
+###############
 
 import osmnx as ox
 import pandas as pd
@@ -43,34 +43,34 @@ def get_route_graph(
     west=None,
     force_crs=None,
 ):
-    """ 
-	Wrapper to retrieve city's street network
-	Loads the data if stored locally
-	Otherwise, it retrieves the graph from OpenStreetMap using the osmnx package
-	Input polygon or bounding box coordinates determine the region of interest
+    """
+        Wrapper to retrieve city's street network
+        Loads the data if stored locally
+        Otherwise, it retrieves the graph from OpenStreetMap using the osmnx package
+        Input polygon or bounding box coordinates determine the region of interest
 
-	Parameters
-	----------
-	city_ref : string
-		name of the city
-	polygon : shapely.Polygon
-		polygon shape of input city
-	north : float
-		northern latitude of bounding box
-	south : float
-		southern latitude of bounding box
-	east : float
-		eastern longitude of bounding box
-	west : float
-		western longitude of bounding box
-	force_crs : dict
-		graph will be projected to input crs
+        Parameters
+        ----------
+        city_ref : string
+                name of the city
+        polygon : shapely.Polygon
+                polygon shape of input city
+        north : float
+                northern latitude of bounding box
+        south : float
+                southern latitude of bounding box
+        east : float
+                eastern longitude of bounding box
+        west : float
+                western longitude of bounding box
+        force_crs : dict
+                graph will be projected to input crs
 
-	Returns
-	----------
-	networkx.multidigraph
-		projected graph
-	"""
+        Returns
+        ----------
+        networkx.multidigraph
+                projected graph
+        """
     return retrieve_route_graph(
         city_ref, date, polygon, north, south, east, west, force_crs
     )
@@ -101,62 +101,84 @@ def get_processed_osm_data(
     },
 ):
     """
-	Retrieves buildings, building parts, and Points of Interest associated with a residential/activity land use from OpenStreetMap data for input city
-	If a name for input city is given, the data will be loaded (if it was previously stored)
-	If no stored files exist, it will query and process the data and store it under the city name
-	Queries data for input region (polygon, place, point/address and distance around, or bounding box coordinates)
-	Additional arguments will drive the overall process
+        Retrieves buildings, building parts, and Points of Interest associated
+    with a residential/activity land use from OpenStreetMap data for input city
 
-	Parameters
-	----------
-	city_ref : str
-		Name of input city / region
-	region_args : dict
-		contains the information to retrieve the region of interest as the following:
-			polygon : shapely Polygon or MultiPolygon
-				geographic shape to fetch the landuse footprints within
-			place : string or dict
-				query string or structured query dict to geocode/download
-			which_result : int
-				result number to retrieve from geocode/download when using query string 
-			point : tuple
-				the (lat, lon) central point around which to construct the graph
-			address : string
-				the address to geocode and use as the central point around which to construct the graph
-			distance : int
-				retain only those nodes within this many meters of the center of the graph
-			north : float
-				northern latitude of bounding box
-			south : float
-				southern latitude of bounding box
-			east : float
-				eastern longitude of bounding box
-			west : float
-				western longitude of bounding box
-	kwargs : dict
-		additional arguments to drive the process:
-			retrieve_graph : boolean
-				that determines if the street network for input city has to be retrieved and stored
-			default_height : float
-				height of buildings under missing data
-			meters_per_level : float
-				buildings number of levels assumed under missing data
-			associate_landuses_m2 : boolean
-				compute the total square meter for each land use
-			mixed_building_first_floor_activity : Boolean
-				if True: Associates building's first floor to activity uses and the rest to residential uses
-				if False: Associates half of the building's area to each land use (Activity and Residential)
-			minimum_m2_building_area : float
-				minimum area to be considered a building (otherwise filtered)
-			date : datetime.datetime
-				query the database at a certain time-stamp
+        If a name for input city is given, the data will be loaded (if it was
+        previously stored)
 
-	Returns
-	----------
-	[ gpd.GeoDataFrame, gpd.GeoDataFrame, gpd.GeoDataFrame ]
-		returns the output geo dataframe containing all buildings, building parts, and points associated to a residential or activity land usage
-	
-	"""
+        If no stored files exist, it will query and process the data and store
+        it under the city name
+
+        Queries data for input region (polygon, place, point/address and
+        distance around, or bounding box coordinates)
+
+        Additional arguments will drive the overall process
+
+        Parameters
+        ----------
+        city_ref : str
+                Name of input city / region
+        region_args : dict
+                contains the information to retrieve the region of interest as
+        the following:
+                        polygon : shapely Polygon or MultiPolygon
+                                geographic shape to fetch the landuse
+        footprints within
+                        place : string or dict
+                                query string or structured query dict to
+        geocode/download
+                        which_result : int
+                                result number to retrieve from geocode/download
+        when using query string
+                        point : tuple
+                                the (lat, lon) central point around which to
+        construct the graph
+                        address : string
+                                the address to geocode and use as the central
+        point around which to construct the graph
+                        distance : int
+                                retain only those nodes within this many meters
+        of the center of the graph
+                        north : float
+                                northern latitude of bounding box
+                        south : float
+                                southern latitude of bounding box
+                        east : float
+                                eastern longitude of bounding box
+                        west : float
+                                western longitude of bounding box
+        kwargs : dict
+                additional arguments to drive the process:
+                        retrieve_graph : boolean
+                                that determines if the street network for input
+        city has to be retrieved and stored
+                        default_height : float
+                                height of buildings under missing data
+                        meters_per_level : float
+                                buildings number of levels assumed under
+        missing data
+                        associate_landuses_m2 : boolean
+                                compute the total square meter for each land use
+                        mixed_building_first_floor_activity : Boolean
+                                if True: Associates building's first floor to
+        activity uses and the rest to residential uses
+                                if False: Associates half of the building's
+        area to each land use (Activity and Residential)
+                        minimum_m2_building_area : float
+                                minimum area to be considered a building
+        (otherwise filtered)
+                        date : datetime.datetime
+                                query the database at a certain time-stamp
+
+        Returns
+        ----------
+        [ gpd.GeoDataFrame, gpd.GeoDataFrame, gpd.GeoDataFrame ]
+                returns the output geo dataframe containing all buildings,
+        building parts, and points associated to a residential or activity land
+        usage
+
+        """
     log("OSM data requested for city: " + str(city_ref))
 
     start_time = time.time()
@@ -167,7 +189,7 @@ def get_processed_osm_data(
         )
 
         ##########################
-        ### Stored file ?
+        # Stored file ?
         ##########################
         if os.path.isfile(geo_poly_file):  # File exists
             log("Found stored files for city " + city_ref)
@@ -192,7 +214,7 @@ def get_processed_osm_data(
         region_args.get("west"),
     )
 
-    ### Valid input?
+    # Valid input?
     if not (
         any(
             [
@@ -219,7 +241,7 @@ def get_processed_osm_data(
         date_query = ""
 
         ##########################
-        ### Overpass query: Buildings
+        # Overpass query: Buildings
         ##########################
         # Query and update bounding box / polygon
     df_osm_built, polygon, north, south, east, west = create_buildings_gdf_from_input(
@@ -238,10 +260,10 @@ def get_processed_osm_data(
     df_osm_built["osm_id"] = df_osm_built.index
     df_osm_built.reset_index(drop=True, inplace=True)
     df_osm_built.gdf_name = (
-        str(city_ref) + "_buildings" if not city_ref is None else "buildings"
+        str(city_ref) + "_buildings" if city_ref is not None else "buildings"
     )
     ##########################
-    ### Overpass query: Land use polygons. Aid to perform buildings land use inference
+    # Overpass query: Land use polygons. Aid to perform buildings land use inference
     ##########################
     df_osm_lu = create_landuse_gdf(
         date=date_query,
@@ -258,17 +280,17 @@ def get_processed_osm_data(
         [
             col
             for col in list(df_osm_lu.columns)
-            if not col in columns_of_interest
+            if col not in columns_of_interest
         ],
         axis=1,
         inplace=True,
     )
     df_osm_lu.reset_index(drop=True, inplace=True)
     df_osm_lu.gdf_name = (
-        str(city_ref) + "_landuse" if not city_ref is None else "landuse"
+        str(city_ref) + "_landuse" if city_ref is not None else "landuse"
     )
     ##########################
-    ### Overpass query: POIs
+    # Overpass query: POIs
     ##########################
     df_osm_pois = create_pois_gdf(
         date=date_query,
@@ -281,10 +303,10 @@ def get_processed_osm_data(
     df_osm_pois["osm_id"] = df_osm_pois.index
     df_osm_pois.reset_index(drop=True, inplace=True)
     df_osm_pois.gdf_name = (
-        str(city_ref) + "_points" if not city_ref is None else "points"
+        str(city_ref) + "_points" if city_ref is not None else "points"
     )
     ##########
-    ### Overpass query: Building parts. Allow to calculate the real amount of M^2 for each building
+    # Overpass query: Building parts. Allow to calculate the real amount of M^2 for each building
     ##########
     df_osm_building_parts = create_building_parts_gdf(
         date=date_query,
@@ -318,7 +340,7 @@ def get_processed_osm_data(
     df_osm_building_parts.reset_index(drop=True, inplace=True)
     df_osm_building_parts.gdf_name = (
         str(city_ref) + "_building_parts"
-        if not city_ref is None
+        if city_ref is not None
         else "building_parts"
     )
 
@@ -328,7 +350,7 @@ def get_processed_osm_data(
     )
 
     ####################################################
-    ### Sanity check of height tags
+    # Sanity check of height tags
     ####################################################
     start_time = time.time()
 
@@ -346,7 +368,7 @@ def get_processed_osm_data(
     ].apply(lambda x: remove_nan_dict(x.to_dict()), axis=1)
 
     ###########
-    ### Remove columns which do not provide valuable information
+    # Remove columns which do not provide valuable information
     ###########
     columns_of_interest = columns_osm_tag + [
         "osm_id",
@@ -357,7 +379,7 @@ def get_processed_osm_data(
         [
             col
             for col in list(df_osm_built.columns)
-            if not col in columns_of_interest
+            if col not in columns_of_interest
         ],
         axis=1,
         inplace=True,
@@ -366,7 +388,7 @@ def get_processed_osm_data(
         [
             col
             for col in list(df_osm_building_parts.columns)
-            if not col in columns_of_interest
+            if col not in columns_of_interest
         ],
         axis=1,
         inplace=True,
@@ -377,7 +399,7 @@ def get_processed_osm_data(
         [
             col
             for col in list(df_osm_pois.columns)
-            if not col in columns_of_interest
+            if col not in columns_of_interest
         ],
         axis=1,
         inplace=True,
@@ -389,7 +411,7 @@ def get_processed_osm_data(
     )
 
     ###########
-    ### Classification
+    # Classification
     ###########
     start_time = time.time()
 
@@ -429,7 +451,7 @@ def get_processed_osm_data(
     )
 
     ###########
-    ### Remove already used tags
+    # Remove already used tags
     ###########
     start_time = time.time()
 
@@ -450,9 +472,9 @@ def get_processed_osm_data(
     )
 
     ###########
-    ### Project, drop small buildings and reset indices
+    # Project, drop small buildings and reset indices
     ###########
-    ### Project to UTM coordinates within the same zone
+    # Project to UTM coordinates within the same zone
     df_osm_built = ox.project_gdf(df_osm_built)
     df_osm_lu = ox.project_gdf(df_osm_lu, to_crs=df_osm_built.crs)
     df_osm_pois = ox.project_gdf(df_osm_pois, to_crs=df_osm_built.crs)
@@ -474,7 +496,7 @@ def get_processed_osm_data(
     )
 
     ####################################################
-    ### Infer buildings land use (under uncertainty)
+    # Infer buildings land use (under uncertainty)
     ####################################################
     start_time = time.time()
 
@@ -494,7 +516,7 @@ def get_processed_osm_data(
     )
 
     ####################################################
-    ### Associate for each building, its containing building parts and Points of interest
+    # Associate for each building, its containing building parts and Points of interest
     ####################################################
     start_time = time.time()
 
@@ -523,12 +545,14 @@ def get_processed_osm_data(
     )
 
     log(
-        "Done: Building parts association and activity categorization. Elapsed time (H:M:S): "
+        "Done: Building parts association and activity categorization. "
+        + "Elapsed time (H:M:S): "
         + time.strftime("%H:%M:%S", time.gmtime(time.time() - start_time))
     )
 
     ####################################################
-    ### Associate effective number of levels, and measure the surface dedicated to each land use per building
+    # Associate effective number of levels,
+    # and measure the surface dedicated to each land use per building
     ####################################################
     if kwargs["associate_landuses_m2"]:
         start_time = time.time()
@@ -547,7 +571,8 @@ def get_processed_osm_data(
             mixed_building_first_floor_activity=mixed_building_first_floor_activity,
         )
 
-        # Set the composed classification given, for each building, its containing Points of Interest and building parts classification
+        # Set the composed classification given, for each building,
+        # its containing Points of Interest and building parts classification
         df_osm_built.loc[
             df_osm_built.apply(
                 lambda x: x.landuses_m2["activity"] > 0
@@ -576,7 +601,7 @@ def get_processed_osm_data(
     ] = np.nan
 
     ##########################
-    ### Overpass query: Street network graph
+    # Overpass query: Street network graph
     ##########################
     if kwargs["retrieve_graph"]:  # Save graph for input city shape
         start_time = time.time()
@@ -598,7 +623,7 @@ def get_processed_osm_data(
         )
 
         ##########################
-        ### Store file ?
+        # Store file ?
         ##########################
     if city_ref:  # File exists
         # Save GeoDataFrames

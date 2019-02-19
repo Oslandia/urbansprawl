@@ -1,7 +1,7 @@
-###################################################################################################
+###############
 # Repository: https://github.com/lgervasoni/urbansprawl
 # MIT License
-###################################################################################################
+###############
 
 import numpy as np
 import pandas as pd
@@ -14,7 +14,7 @@ from scipy.spatial.distance import cdist
 def WeightedKernelDensityEstimation(
     X, Weights, bandwidth, Y, max_mb_per_chunk=1000
 ):
-    """ 
+    """
     Computes a Weighted Kernel Density Estimation
 
     Parameters
@@ -38,8 +38,10 @@ def WeightedKernelDensityEstimation(
         # Calculate MB needed to allocate pairwise distances
         return len(X) * len(Y) * 8 * 1e-6
 
-    # During this procedure, pairwise euclidean distances are computed between inputs points X and points to estimate Y
-    # For this reason, Y is divided in chunks to avoid big memory allocations. At most, X megabytes per chunk are allocated for pairwise distances
+    # During this procedure, pairwise euclidean distances
+    # are computed between inputs points X and points to estimate Y
+    # For this reason, Y is divided in chunks to avoid big memory allocations
+    # At most, X megabytes per chunk are allocated for pairwise distances
     Y_split = np.array_split(
         Y,
         math.ceil(
@@ -48,20 +50,7 @@ def WeightedKernelDensityEstimation(
         ),
     )
 
-    """
-    ### Step by step
-    # Weighed KDE: Sum{ Weight_i * K( (X-Xi) / h) }
-    W_norm = np.array( Weights / np.sum(Weights) )
-    cdist_values = cdist( Y, X, 'euclidean') / bandwidth
-    Ks = np.exp( -.5 * ( cdist_values ) ** 2  )
-    PDF = np.sum( Ks * W_norm, axis=1)
-    """
-    """
-    ### Complete version. Memory consuming
-    PDF = np.sum( np.exp( -.5 * ( cdist( Y, X, 'euclidean') / bandwidth ) ** 2  ) * ( np.array( Weights / np.sum(Weights) ) ), axis=1)
-    """
-
-    ### Divide Y in chunks to avoid big memory allocations
+    # Divide Y in chunks to avoid big memory allocations
     PDF = np.concatenate(
         [
             np.sum(
@@ -78,18 +67,18 @@ def WeightedKernelDensityEstimation(
 
 def cut_in_two(line):
     """
-	Cuts input line into two lines of equal length
+        Cuts input line into two lines of equal length
 
-	Parameters
-	----------
-	line : shapely.LineString
-		input line
+        Parameters
+        ----------
+        line : shapely.LineString
+                input line
 
-	Returns
-	----------
-	list (LineString, LineString, Point)
-		two lines and the middle point cutting input line
-	"""
+        Returns
+        ----------
+        list (LineString, LineString, Point)
+                two lines and the middle point cutting input line
+        """
     from shapely.geometry import Point, LineString
 
     # Get final distance value
@@ -113,8 +102,8 @@ def cut_in_two(line):
 
 class NodeCounter:
     """
-	Node negative counter. Utils for node osmid creation. Start on -1 and it auto decrements
-	"""
+        Node negative counter. Utils for node osmid creation. Start on -1 and it auto decrements
+        """
 
     def __init__(self):
         self._num = 0
@@ -128,32 +117,32 @@ def verify_divide_edge(
     G, u, v, key, data, node_creation_counter, max_edge_length
 ):
     """
-	Verify if edge(u,v)[key] length is higher than a certain threshold
-	In this case, divide edge(u,v) in two edges of equal length
-	Assign negative values to the edges new osm id
-	Call recursively to continue dividing each of the lines if necessary
+        Verify if edge(u,v)[key] length is higher than a certain threshold
+        In this case, divide edge(u,v) in two edges of equal length
+        Assign negative values to the edges new osm id
+        Call recursively to continue dividing each of the lines if necessary
 
-	Parameters
-	----------
-	G : networkx multidigraph
-		input graph
-	u : node
-		origin node
-	v : node
-		destination node
-	key : int
-		(u,v) arc identifier
-	data : dict
-		arc data
-	node_creation_counter : NodeCounter
-		node identifier creation
-	max_edge_length : float
-		maximum tolerated edge length
+        Parameters
+        ----------
+        G : networkx multidigraph
+                input graph
+        u : node
+                origin node
+        v : node
+                destination node
+        key : int
+                (u,v) arc identifier
+        data : dict
+                arc data
+        node_creation_counter : NodeCounter
+                node identifier creation
+        max_edge_length : float
+                maximum tolerated edge length
 
-	Returns
-	----------
+        Returns
+        ----------
 
-	"""
+        """
     # Input: Two communicated nodes (u, v)
     if data["length"] <= max_edge_length:  # Already satisfy condition?
         return
@@ -223,19 +212,19 @@ def verify_divide_edge(
 
 def divide_long_edges_graph(G, max_edge_length):
     """
-	Divide all edges with a higher length than input threshold by means of dividing the arcs and creating new nodes
+        Divide all edges with a higher length than input threshold by means of dividing the arcs and creating new nodes
 
-	Parameters
-	----------
-	G : networkx multidigraph
-		input graph
-	max_edge_length : float
-		maximum tolerated edge length
+        Parameters
+        ----------
+        G : networkx multidigraph
+                input graph
+        max_edge_length : float
+                maximum tolerated edge length
 
-	Returns
-	----------
+        Returns
+        ----------
 
-	"""
+        """
     # Negative osm_id indicate created nodes
     node_creation_counter = NodeCounter()
 

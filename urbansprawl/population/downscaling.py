@@ -1,7 +1,7 @@
-###################################################################################################
+###############
 # Repository: https://github.com/lgervasoni/urbansprawl
 # MIT License
-###################################################################################################
+###############
 
 import geopandas as gpd
 import osmnx as ox
@@ -13,20 +13,20 @@ from keras.layers import Activation, Flatten, Conv1D
 
 def proportional_population_downscaling(df_osm_built, df_insee):
     """
-	Performs a proportional population downscaling considering the surface dedicated to residential land use
-	Associates the estimated population to each building in column 'population'
+        Performs a proportional population downscaling considering the surface dedicated to residential land use
+        Associates the estimated population to each building in column 'population'
 
-	Parameters
-	----------
-	df_osm_built : geopandas.GeoDataFrame
-		input buildings with computed residential surface
-	df_insee : geopandas.GeoDataFrame
-		INSEE population data
+        Parameters
+        ----------
+        df_osm_built : geopandas.GeoDataFrame
+                input buildings with computed residential surface
+        df_insee : geopandas.GeoDataFrame
+                INSEE population data
 
-	Returns
-	----------
+        Returns
+        ----------
 
-	"""
+        """
     if df_insee.crs != df_osm_built.crs:  # If projections do not match
         # First project to Lat-Long coordinates, then project to UTM coordinates
         df_insee = ox.project_gdf(ox.project_gdf(df_insee, to_latlong=True))
@@ -115,11 +115,11 @@ def train_population_downscaling_model(
         Performs a population downscaling by feeding a neural network with
                                           various OSM-related features
 
-	Associates the estimated population to each building in column 'population'
+        Associates the estimated population to each building in column 'population'
 
-	Parameters
-	----------
-	X_train :
+        Parameters
+        ----------
+        X_train :
         Y_train :
         X_val :
         Y_val :
@@ -127,8 +127,8 @@ def train_population_downscaling_model(
         epochs : int
         checkpoint_filenames : str
 
-	Returns
-	----------
+        Returns
+        ----------
         keras.models.Sequential
 
         """
