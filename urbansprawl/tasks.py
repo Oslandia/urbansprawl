@@ -39,26 +39,37 @@ from osgeo import gdal, ogr, osr
 import pandas as pd
 import sh
 
-from urbansprawl.osm.overpass import (create_buildings_gdf,
-                                      create_building_parts_gdf,
-                                      create_pois_gdf,
-                                      create_landuse_gdf,
-                                      retrieve_route_graph)
-from urbansprawl.osm.utils import (sanity_check_height_tags,
-                                   associate_structures)
-from urbansprawl.osm.classification import (classify_tag,
-                                            classify_activity_category,
-                                            compute_landuse_inference)
+from urbansprawl.osm.overpass import (
+    create_buildings_gdf,
+    create_building_parts_gdf,
+    create_pois_gdf,
+    create_landuse_gdf,
+    retrieve_route_graph,
+)
+from urbansprawl.osm.utils import (
+    sanity_check_height_tags,
+    associate_structures,
+)
+from urbansprawl.osm.classification import (
+    classify_tag,
+    classify_activity_category,
+    compute_landuse_inference,
+)
 from urbansprawl.osm.surface import compute_landuses_m2
 from urbansprawl.sprawl.core import get_indices_grid_from_bbox
 from urbansprawl.sprawl.landusemix import compute_grid_landusemix
 from urbansprawl.sprawl.accessibility import compute_grid_accessibility
 from urbansprawl.sprawl.dispersion import compute_grid_dispersion
 from urbansprawl.population.data_extract import get_extract_population_data
-from urbansprawl.population.urban_features import (compute_full_urban_features,
-                                                   get_training_testing_data,
-                                                   get_Y_X_features_population_data)
-from urbansprawl.population.downscaling import (train_population_downscaling_model, build_downscaling_cnn)
+from urbansprawl.population.urban_features import (
+    compute_full_urban_features,
+    get_training_testing_data,
+    get_Y_X_features_population_data,
+)
+from urbansprawl.population.downscaling import (
+    train_population_downscaling_model,
+    build_downscaling_cnn,
+)
 
 
 config = ConfigParser()
@@ -70,14 +81,30 @@ else:
 
 
 # Columns of interest corresponding to OSM keys
-OSM_TAG_COLUMNS = [ "amenity", "landuse", "leisure", "shop", "man_made",
-                    "building", "building:use", "building:part" ]
+OSM_TAG_COLUMNS = [
+    "amenity",
+    "landuse",
+    "leisure",
+    "shop",
+    "man_made",
+    "building",
+    "building:use",
+    "building:part",
+]
 COLUMNS_OF_INTEREST = OSM_TAG_COLUMNS + ["osm_id", "geometry", "height_tags"]
 COLUMNS_OF_INTEREST_POIS = OSM_TAG_COLUMNS + ["osm_id", "geometry"]
 COLUMNS_OF_INTEREST_LANDUSES = ["osm_id", "geometry", "landuse"]
-HEIGHT_TAGS = [ "min_height", "height", "min_level", "levels",
-                "building:min_height", "building:height", "building:min_level",
-                "building:levels", "building:levels:underground" ]
+HEIGHT_TAGS = [
+    "min_height",
+    "height",
+    "min_level",
+    "levels",
+    "building:min_height",
+    "building:height",
+    "building:min_level",
+    "building:levels",
+    "building:levels:underground",
+]
 BUILDING_PARTS_TO_FILTER = ["no", "roof"]
 MINIMUM_M2_BUILDING_AREA = 9.0
 
@@ -123,7 +150,7 @@ def set_list_as_str(l):
         Stringified version of the input list, with items separated with a comma
     """
     if type(l) == list:
-        return ','.join(str(e) for e in l)
+        return ",".join(str(e) for e in l)
 
 
 def clean_list_in_geodataframe_column(gdf, column):
@@ -164,6 +191,7 @@ class GetBoundingBox(luigi.Task):
         Indicates the folder where the task result has to be serialized
     (default: `./data`)
     """
+
     city = luigi.Parameter()
     datapath = luigi.Parameter("./data")
 
@@ -207,6 +235,7 @@ class GetData(luigi.Task):
     or `land-uses`)
 
     """
+
     city = luigi.Parameter()
     datapath = luigi.Parameter("./data")
     geoformat = luigi.Parameter("geojson")
@@ -220,57 +249,77 @@ class GetData(luigi.Task):
         return GetBoundingBox(self.city, self.datapath)
 
     def output(self):
-        output_path = define_filename("raw-" + self.table,
-                                      self.city,
-                                      dt.date(self.date_query).isoformat(),
-                                      self.datapath,
-                                      self.geoformat)
+        output_path = define_filename(
+            "raw-" + self.table,
+            self.city,
+            dt.date(self.date_query).isoformat(),
+            self.datapath,
+            self.geoformat,
+        )
         return luigi.LocalTarget(output_path)
 
     def run(self):
         city_gdf = gpd.read_file(self.input().path)
-        north, south, east, west = city_gdf.loc[0, ["bbox_north", "bbox_south",
-                                                    "bbox_east", "bbox_west"]]
+        north, south, east, west = city_gdf.loc[
+            0, ["bbox_north", "bbox_south", "bbox_east", "bbox_west"]
+        ]
         date = "[date:'" + str(self.date_query) + "']"
         if self.table == "buildings":
-            gdf = create_buildings_gdf(date=date,
-                                       north=north, south=south,
-                                       east=east, west=west)
+            gdf = create_buildings_gdf(
+                date=date, north=north, south=south, east=east, west=west
+            )
             gdf.drop(["nodes"], axis=1, inplace=True)
         elif self.table == "building-parts":
-            gdf = create_building_parts_gdf(date=date,
-                                            north=north, south=south,
-                                            east=east, west=west)
-            if ("building" in gdf.columns):
-                gdf = gdf[(~gdf["building:part"].isin(BUILDING_PARTS_TO_FILTER)) & (~gdf["building:part"].isnull() ) & (gdf["building"].isnull()) ]
+            gdf = create_building_parts_gdf(
+                date=date, north=north, south=south, east=east, west=west
+            )
+            if "building" in gdf.columns:
+                gdf = gdf[
+                    (~gdf["building:part"].isin(BUILDING_PARTS_TO_FILTER))
+                    & (~gdf["building:part"].isnull())
+                    & (gdf["building"].isnull())
+                ]
             else:
-                gdf = gdf[ (~gdf["building:part"].isin(BUILDING_PARTS_TO_FILTER) ) & (~gdf["building:part"].isnull() ) ]
+                gdf = gdf[
+                    (~gdf["building:part"].isin(BUILDING_PARTS_TO_FILTER))
+                    & (~gdf["building:part"].isnull())
+                ]
             gdf.drop(["nodes"], axis=1, inplace=True)
             gdf["osm_id"] = gdf.index
             gdf.reset_index(drop=True, inplace=True)
         elif self.table == "pois":
-            gdf = create_pois_gdf(date=date,
-                                  north=north, south=south,
-                                  east=east, west=west)
-            columns_to_drop = [col for col in list(gdf.columns)
-                               if not col in COLUMNS_OF_INTEREST_POIS]
+            gdf = create_pois_gdf(
+                date=date, north=north, south=south, east=east, west=west
+            )
+            columns_to_drop = [
+                col
+                for col in list(gdf.columns)
+                if not col in COLUMNS_OF_INTEREST_POIS
+            ]
             gdf.drop(columns_to_drop, axis=1, inplace=True)
             gdf["osm_id"] = gdf.index
             gdf.reset_index(drop=True, inplace=True)
         elif self.table == "land-uses":
-            gdf = create_landuse_gdf(date=date,
-                                     north=north, south=south,
-                                     east=east, west=west)
+            gdf = create_landuse_gdf(
+                date=date, north=north, south=south, east=east, west=west
+            )
             gdf = gdf[["landuse", "geometry"]]
             gdf["osm_id"] = gdf.index
-            columns_to_drop = [col for col in list(gdf.columns)
-                           if not col in COLUMNS_OF_INTEREST_LANDUSES]
+            columns_to_drop = [
+                col
+                for col in list(gdf.columns)
+                if not col in COLUMNS_OF_INTEREST_LANDUSES
+            ]
             gdf.drop(columns_to_drop, axis=1, inplace=True)
             gdf.reset_index(drop=True, inplace=True)
         else:
-            raise ValueError(("Please provide a valid table name (either "
-                              "'buildings', 'building-parts', 'pois' "
-                              "or 'land-uses')."))
+            raise ValueError(
+                (
+                    "Please provide a valid table name (either "
+                    "'buildings', 'building-parts', 'pois' "
+                    "or 'land-uses')."
+                )
+            )
         gdf.to_file(self.output().path, driver="GeoJSON")
 
 
@@ -298,6 +347,7 @@ class SanityCheck(luigi.Task):
     table : str
         Structure to check, either `buildings` or `building-parts`
     """
+
     city = luigi.Parameter()
     datapath = luigi.Parameter("./data")
     geoformat = luigi.Parameter("geojson")
@@ -306,32 +356,46 @@ class SanityCheck(luigi.Task):
 
     def requires(self):
         if self.table in ["buildings", "building-parts"]:
-            return GetData(self.city, self.datapath,
-                           self.geoformat, self.date_query, self.table)
+            return GetData(
+                self.city,
+                self.datapath,
+                self.geoformat,
+                self.date_query,
+                self.table,
+            )
         else:
-            raise ValueError(("Please provide a valid table name (either "
-                              "'buildings' or 'building-parts')."))
+            raise ValueError(
+                (
+                    "Please provide a valid table name (either "
+                    "'buildings' or 'building-parts')."
+                )
+            )
 
     def output(self):
-        output_path = define_filename("checked-" + self.table,
-                                      self.city,
-                                      dt.date(self.date_query).isoformat(),
-                                      self.datapath,
-                                      self.geoformat)
+        output_path = define_filename(
+            "checked-" + self.table,
+            self.city,
+            dt.date(self.date_query).isoformat(),
+            self.datapath,
+            self.geoformat,
+        )
         return luigi.LocalTarget(output_path)
 
     def run(self):
         gdf = gpd.read_file(self.input().path)
         sanity_check_height_tags(gdf)
+
         def remove_nan_dict(x):
             """Remove entries with nan values
             """
-            return {k:v for k, v in x.items() if pd.notnull(v)}
-        gdf['height_tags'] = gdf[[c for c in HEIGHT_TAGS
-                                  if c in gdf.columns]].apply(lambda x:
-                                                              remove_nan_dict(x.to_dict() ), axis=1)
-        columns_to_drop = [col for col in list(gdf.columns)
-                           if not col in COLUMNS_OF_INTEREST]
+            return {k: v for k, v in x.items() if pd.notnull(v)}
+
+        gdf["height_tags"] = gdf[
+            [c for c in HEIGHT_TAGS if c in gdf.columns]
+        ].apply(lambda x: remove_nan_dict(x.to_dict()), axis=1)
+        columns_to_drop = [
+            col for col in list(gdf.columns) if not col in COLUMNS_OF_INTEREST
+        ]
         gdf.drop(columns_to_drop, axis=1, inplace=True)
         gdf["osm_id"] = gdf.index
         gdf.reset_index(drop=True, inplace=True)
@@ -362,6 +426,7 @@ class GetClassifiedInfo(luigi.Task):
     table : str
         Structure of interest, either `buildings`, `building-parts` or `pois`
     """
+
     city = luigi.Parameter()
     datapath = luigi.Parameter("./data")
     geoformat = luigi.Parameter("geojson")
@@ -370,42 +435,73 @@ class GetClassifiedInfo(luigi.Task):
 
     def requires(self):
         if self.table in ["buildings", "building-parts"]:
-            return SanityCheck(self.city, self.datapath,
-                               self.geoformat, self.date_query, self.table)
+            return SanityCheck(
+                self.city,
+                self.datapath,
+                self.geoformat,
+                self.date_query,
+                self.table,
+            )
         elif self.table == "pois":
-            return GetData(self.city, self.datapath,
-                           self.geoformat, self.date_query, self.table)
+            return GetData(
+                self.city,
+                self.datapath,
+                self.geoformat,
+                self.date_query,
+                self.table,
+            )
         else:
-            raise ValueError(("Please provide a valid table name (either "
-                              "'buildings', 'building-parts', 'pois')."))
+            raise ValueError(
+                (
+                    "Please provide a valid table name (either "
+                    "'buildings', 'building-parts', 'pois')."
+                )
+            )
 
     def output(self):
-        output_path = define_filename("classified-" + self.table,
-                                      self.city,
-                                      dt.date(self.date_query).isoformat(),
-                                      self.datapath,
-                                      self.geoformat)
+        output_path = define_filename(
+            "classified-" + self.table,
+            self.city,
+            dt.date(self.date_query).isoformat(),
+            self.datapath,
+            self.geoformat,
+        )
         return luigi.LocalTarget(output_path)
 
     def run(self):
         gdf = gpd.read_file(self.input().path)
-        gdf['classification'], gdf['key_value'] = list( zip(*gdf.apply(classify_tag, axis=1)) )
+        gdf["classification"], gdf["key_value"] = list(
+            zip(*gdf.apply(classify_tag, axis=1))
+        )
         if self.table == "buildings":
             gdf.drop(gdf[gdf.classification.isnull()].index, inplace=True)
             gdf.reset_index(inplace=True, drop=True)
         elif self.table == "building-parts":
-	    # Building parts will acquire its containing building land use
+            # Building parts will acquire its containing building land use
             # if it is not available
-            gdf.loc[gdf.classification.isin(["infer", "other"]),
-                    "classification"] = None
+            gdf.loc[
+                gdf.classification.isin(["infer", "other"]), "classification"
+            ] = None
         elif self.table == "pois":
-            gdf.drop(gdf[gdf.classification.isin(["infer", "other"]) | gdf.classification.isnull()].index, inplace=True)
+            gdf.drop(
+                gdf[
+                    gdf.classification.isin(["infer", "other"])
+                    | gdf.classification.isnull()
+                ].index,
+                inplace=True,
+            )
             gdf.reset_index(inplace=True, drop=True)
         else:
-            raise ValueError(("Please provide a valid table name (either "
-                              "'buildings', 'building-parts', 'pois')."))
+            raise ValueError(
+                (
+                    "Please provide a valid table name (either "
+                    "'buildings', 'building-parts', 'pois')."
+                )
+            )
         # Drop tag-related columns
-        columns_to_drop = [col for col in OSM_TAG_COLUMNS if col in gdf.columns]
+        columns_to_drop = [
+            col for col in OSM_TAG_COLUMNS if col in gdf.columns
+        ]
         gdf.drop(columns_to_drop, axis=1, inplace=True)
         gdf.to_file(self.output().path, driver="GeoJSON")
 
@@ -434,6 +530,7 @@ class SetupProjection(luigi.Task):
     table : str
         Structure of interest, either `buildings`, `building-parts` or `pois`
     """
+
     city = luigi.Parameter()
     datapath = luigi.Parameter("./data")
     geoformat = luigi.Parameter("geojson")
@@ -442,37 +539,54 @@ class SetupProjection(luigi.Task):
 
     def requires(self):
         if self.table in ["buildings", "building-parts", "pois"]:
-            return GetClassifiedInfo(self.city, self.datapath,
-                                     self.geoformat, self.date_query,
-                                     self.table)
+            return GetClassifiedInfo(
+                self.city,
+                self.datapath,
+                self.geoformat,
+                self.date_query,
+                self.table,
+            )
         elif self.table == "land-uses":
-            return GetData(self.city, self.datapath,
-                           self.geoformat, self.date_query, self.table)
+            return GetData(
+                self.city,
+                self.datapath,
+                self.geoformat,
+                self.date_query,
+                self.table,
+            )
         else:
-            raise ValueError(("Please provide a valid table name (either "
-                              "'buildings', 'building-parts', "
-                              "'pois' or 'land-uses')."))
+            raise ValueError(
+                (
+                    "Please provide a valid table name (either "
+                    "'buildings', 'building-parts', "
+                    "'pois' or 'land-uses')."
+                )
+            )
 
     def output(self):
-        output_path = define_filename("reprojected-" + self.table,
-                                      self.city,
-                                      dt.date(self.date_query).isoformat(),
-                                      self.datapath,
-                                      self.geoformat)
+        output_path = define_filename(
+            "reprojected-" + self.table,
+            self.city,
+            dt.date(self.date_query).isoformat(),
+            self.datapath,
+            self.geoformat,
+        )
         return luigi.LocalTarget(output_path)
 
     def run(self):
         gdf = gpd.read_file(self.input().path)
-	### Project to UTM coordinates within the same zone
+        ### Project to UTM coordinates within the same zone
         gdf = osmnx.project_gdf(gdf)
         if self.table == "buildings":
-            gdf.drop(gdf[gdf.geometry.area < MINIMUM_M2_BUILDING_AREA].index,
-                     inplace=True)
+            gdf.drop(
+                gdf[gdf.geometry.area < MINIMUM_M2_BUILDING_AREA].index,
+                inplace=True,
+            )
         proj_path = os.path.join(
             self.datapath, self.city, "utm_projection.json"
         )
         if not os.path.isfile(proj_path):
-            with open(proj_path, 'w') as fobj:
+            with open(proj_path, "w") as fobj:
                 json.dump(gdf.crs, fobj)
         gdf.to_file(self.output().path, driver="GeoJSON")
 
@@ -499,38 +613,55 @@ class InferLandUse(luigi.Task):
         Date to which the OpenStreetMap data must be recovered (format:
     AAAA-MM-DDThhmm)
     """
+
     city = luigi.Parameter()
     datapath = luigi.Parameter("./data")
     geoformat = luigi.Parameter("geojson")
     date_query = luigi.DateMinuteParameter(default=date.today())
 
     def requires(self):
-        return {"buildings": SetupProjection(self.city, self.datapath,
-                                             self.geoformat, self.date_query,
-                                             "buildings"),
-                "land-uses": SetupProjection(self.city, self.datapath,
-                                             self.geoformat, self.date_query,
-                                             "land-uses")}
+        return {
+            "buildings": SetupProjection(
+                self.city,
+                self.datapath,
+                self.geoformat,
+                self.date_query,
+                "buildings",
+            ),
+            "land-uses": SetupProjection(
+                self.city,
+                self.datapath,
+                self.geoformat,
+                self.date_query,
+                "land-uses",
+            ),
+        }
 
     def output(self):
-        output_path = define_filename("infered-buildings",
-                                      self.city,
-                                      dt.date(self.date_query).isoformat(),
-                                      self.datapath,
-                                      self.geoformat)
+        output_path = define_filename(
+            "infered-buildings",
+            self.city,
+            dt.date(self.date_query).isoformat(),
+            self.datapath,
+            self.geoformat,
+        )
         return luigi.LocalTarget(output_path)
 
     def run(self):
         buildings = gpd.read_file(self.input()["buildings"].path)
         land_uses = gpd.read_file(self.input()["land-uses"].path)
-        proj_path = os.path.join(self.datapath, self.city, "utm_projection.json")
+        proj_path = os.path.join(
+            self.datapath, self.city, "utm_projection.json"
+        )
         with open(proj_path) as fobj:
             utm_proj = json.load(fobj)
             buildings.crs = utm_proj
             land_uses.crs = utm_proj
         compute_landuse_inference(buildings, land_uses)
-        assert(len(buildings[buildings.key_value=={"inferred":"other"} ]) == 0)
-        assert(len(buildings[buildings.classification.isnull()]) == 0)
+        assert (
+            len(buildings[buildings.key_value == {"inferred": "other"}]) == 0
+        )
+        assert len(buildings[buildings.classification.isnull()]) == 0
         buildings.to_file(self.output().path, driver="GeoJSON")
 
 
@@ -559,6 +690,7 @@ class ComputeLandUse(luigi.Task):
     meters_per_level : int
         Default height per level, in meter (default: 3 meters)
     """
+
     city = luigi.Parameter()
     datapath = luigi.Parameter("./data")
     geoformat = luigi.Parameter("geojson")
@@ -567,26 +699,40 @@ class ComputeLandUse(luigi.Task):
     meters_per_level = luigi.IntParameter(3)
 
     def requires(self):
-        return {"buildings": InferLandUse(self.city, self.datapath,
-                                          self.geoformat, self.date_query),
-                "building-parts": SetupProjection(self.city, self.datapath,
-                                                  self.geoformat,
-                                                  self.date_query,
-                                                  "building-parts"),
-                "pois": SetupProjection(self.city, self.datapath,
-                                        self.geoformat, self.date_query,
-                                        "pois")}
+        return {
+            "buildings": InferLandUse(
+                self.city, self.datapath, self.geoformat, self.date_query
+            ),
+            "building-parts": SetupProjection(
+                self.city,
+                self.datapath,
+                self.geoformat,
+                self.date_query,
+                "building-parts",
+            ),
+            "pois": SetupProjection(
+                self.city,
+                self.datapath,
+                self.geoformat,
+                self.date_query,
+                "pois",
+            ),
+        }
 
     def output(self):
-        output_path = define_filename("buildings-with-computed-land-use",
-                                      self.city,
-                                      dt.date(self.date_query).isoformat(),
-                                      self.datapath,
-                                      self.geoformat)
+        output_path = define_filename(
+            "buildings-with-computed-land-use",
+            self.city,
+            dt.date(self.date_query).isoformat(),
+            self.datapath,
+            self.geoformat,
+        )
         return luigi.LocalTarget(output_path)
 
     def run(self):
-        proj_path = os.path.join(self.datapath, self.city, "utm_projection.json")
+        proj_path = os.path.join(
+            self.datapath, self.city, "utm_projection.json"
+        )
         buildings = gpd.read_file(self.input()["buildings"].path)
         building_parts = gpd.read_file(self.input()["building-parts"].path)
         pois = gpd.read_file(self.input()["pois"].path)
@@ -595,25 +741,53 @@ class ComputeLandUse(luigi.Task):
             buildings.crs = utm_proj
             building_parts.crs = utm_proj
             pois.crs = utm_proj
-        associate_structures(buildings, building_parts,
-                             operation='contains', column='containing_parts')
-        associate_structures(buildings, pois,
-                             operation='intersects', column='containing_poi')
-        buildings['activity_category'] = buildings.apply(lambda x: classify_activity_category(x.key_value), axis=1)
-        building_parts['activity_category'] = building_parts.apply(lambda x: classify_activity_category(x.key_value), axis=1)
-        pois['activity_category'] = pois.apply(lambda x: classify_activity_category(x.key_value), axis=1)
-        compute_landuses_m2(buildings,
-                            building_parts,
-                            pois,
-                            default_height=self.default_height,
-                            meters_per_level=self.meters_per_level,
-                            mixed_building_first_floor_activity=True)
-        buildings.loc[buildings.activity_category.apply(lambda x: len(x)==0 ), "activity_category" ] = np.nan
-        building_parts.loc[building_parts.activity_category.apply(lambda x: len(x)==0 ), "activity_category" ] = np.nan
-        pois.loc[pois.activity_category.apply(lambda x: len(x)==0 ), "activity_category" ] = np.nan
+        associate_structures(
+            buildings,
+            building_parts,
+            operation="contains",
+            column="containing_parts",
+        )
+        associate_structures(
+            buildings, pois, operation="intersects", column="containing_poi"
+        )
+        buildings["activity_category"] = buildings.apply(
+            lambda x: classify_activity_category(x.key_value), axis=1
+        )
+        building_parts["activity_category"] = building_parts.apply(
+            lambda x: classify_activity_category(x.key_value), axis=1
+        )
+        pois["activity_category"] = pois.apply(
+            lambda x: classify_activity_category(x.key_value), axis=1
+        )
+        compute_landuses_m2(
+            buildings,
+            building_parts,
+            pois,
+            default_height=self.default_height,
+            meters_per_level=self.meters_per_level,
+            mixed_building_first_floor_activity=True,
+        )
+        buildings.loc[
+            buildings.activity_category.apply(lambda x: len(x) == 0),
+            "activity_category",
+        ] = np.nan
+        building_parts.loc[
+            building_parts.activity_category.apply(lambda x: len(x) == 0),
+            "activity_category",
+        ] = np.nan
+        pois.loc[
+            pois.activity_category.apply(lambda x: len(x) == 0),
+            "activity_category",
+        ] = np.nan
         # Set the composed classification given, for each building, its containing Points of Interest and building parts classification
-        buildings.loc[buildings.apply(lambda x: x.landuses_m2["activity"]>0 and
-        x.landuses_m2["residential"]>0, axis=1 ), "classification" ] = "mixed"
+        buildings.loc[
+            buildings.apply(
+                lambda x: x.landuses_m2["activity"] > 0
+                and x.landuses_m2["residential"] > 0,
+                axis=1,
+            ),
+            "classification",
+        ] = "mixed"
         clean_list_in_geodataframe_column(buildings, "containing_parts")
         clean_list_in_geodataframe_column(buildings, "containing_poi")
         clean_list_in_geodataframe_column(buildings, "activity_category")
@@ -642,6 +816,7 @@ class GetRouteGraph(luigi.Task):
         Date to which the OpenStreetMap data must be recovered (format:
     AAAA-MM-DDThhmm)
     """
+
     city = luigi.Parameter()
     datapath = luigi.Parameter("./data")
     geoformat = luigi.Parameter("geojson")
@@ -651,17 +826,25 @@ class GetRouteGraph(luigi.Task):
         return GetBoundingBox(self.city, self.datapath)
 
     def output(self):
-        output_path = os.path.join(self.datapath, self.city + '_network.graphml')
+        output_path = os.path.join(
+            self.datapath, self.city + "_network.graphml"
+        )
         return luigi.LocalTarget(output_path)
 
     def run(self):
         city_gdf = gpd.read_file(self.input().path)
-        north, south, east, west = city_gdf.loc[0, ["bbox_north", "bbox_south",
-                                                    "bbox_east", "bbox_west"]]
+        north, south, east, west = city_gdf.loc[
+            0, ["bbox_north", "bbox_south", "bbox_east", "bbox_west"]
+        ]
         date = "[date:'" + str(self.date_query) + "']"
-        retrieve_route_graph(self.city, date=date,
-                             north=north, south=south,
-                             east=east, west=west)
+        retrieve_route_graph(
+            self.city,
+            date=date,
+            north=north,
+            south=south,
+            east=east,
+            west=west,
+        )
 
 
 class GetIndiceGrid(luigi.Task):
@@ -687,6 +870,7 @@ class GetIndiceGrid(luigi.Task):
         Distance (in meters) between each grid structuring points
 
     """
+
     city = luigi.Parameter()
     datapath = luigi.Parameter("./data")
     geoformat = luigi.Parameter("geojson")
@@ -696,11 +880,9 @@ class GetIndiceGrid(luigi.Task):
         return GetBoundingBox(self.city, self.datapath)
 
     def output(self):
-        output_path = define_filename("indice-grid",
-                                      self.city,
-                                      self.step,
-                                      self.datapath,
-                                      self.geoformat)
+        output_path = define_filename(
+            "indice-grid", self.city, self.step, self.datapath, self.geoformat
+        )
         return luigi.LocalTarget(output_path)
 
     def run(self):
@@ -742,6 +924,7 @@ class ComputeGridLandUseMix(luigi.Task):
             apply natural logarithmic function to surface weights
 
     """
+
     city = luigi.Parameter()
     datapath = luigi.Parameter("./data")
     geoformat = luigi.Parameter("geojson")
@@ -756,33 +939,51 @@ class ComputeGridLandUseMix(luigi.Task):
     log_weighted = luigi.BoolParameter()
 
     def requires(self):
-        return {"grid": GetIndiceGrid(self.city, self.datapath,
-                                      self.geoformat, self.step),
-         "buildings": ComputeLandUse(self.city, self.datapath,
-                                     self.geoformat, self.date_query,
-                                     self.default_height,
-                                     self.meters_per_level),
-         "pois": SetupProjection(self.city, self.datapath,
-                                 self.geoformat, self.date_query, "pois")}
+        return {
+            "grid": GetIndiceGrid(
+                self.city, self.datapath, self.geoformat, self.step
+            ),
+            "buildings": ComputeLandUse(
+                self.city,
+                self.datapath,
+                self.geoformat,
+                self.date_query,
+                self.default_height,
+                self.meters_per_level,
+            ),
+            "pois": SetupProjection(
+                self.city,
+                self.datapath,
+                self.geoformat,
+                self.date_query,
+                "pois",
+            ),
+        }
 
     def output(self):
-        data_ident = str(self.step) + "-" + dt.date(self.date_query).isoformat()
-        output_path = define_filename("gridded-indices-land-use",
-                                      self.city,
-                                      data_ident,
-                                      self.datapath,
-                                      self.geoformat)
+        data_ident = (
+            str(self.step) + "-" + dt.date(self.date_query).isoformat()
+        )
+        output_path = define_filename(
+            "gridded-indices-land-use",
+            self.city,
+            data_ident,
+            self.datapath,
+            self.geoformat,
+        )
         return luigi.LocalTarget(output_path)
 
     def run(self):
         grid = gpd.read_file(self.input()["grid"].path)
         buildings = gpd.read_file(self.input()["buildings"].path)
         pois = gpd.read_file(self.input()["pois"].path)
-        landusemix_args = {'walkable_distance': self.walkable_distance,
-                           'compute_activity_types_kde': self.compute_activity_types_kd,
-                           'weighted_kde': self.weighted_kde,
-                           'pois_weight': self.pois_weights,
-                           'log_weighted': self.log_weighted}
+        landusemix_args = {
+            "walkable_distance": self.walkable_distance,
+            "compute_activity_types_kde": self.compute_activity_types_kd,
+            "weighted_kde": self.weighted_kde,
+            "pois_weight": self.pois_weights,
+            "log_weighted": self.log_weighted,
+        }
         compute_grid_landusemix(grid, buildings, pois, landusemix_args)
         grid.to_file(self.output().path, driver="GeoJSON")
 
@@ -824,6 +1025,7 @@ class PlotLandUseMix(luigi.Task):
     detailed activity have been required (`compute_activity_types_kd` is True).
 
     """
+
     city = luigi.Parameter()
     datapath = luigi.Parameter("./data")
     geoformat = luigi.Parameter("geojson")
@@ -840,28 +1042,37 @@ class PlotLandUseMix(luigi.Task):
     figsize = luigi.IntParameter(8)
 
     def requires(self):
-        return {"grid": ComputeGridLandUseMix(self.city, self.datapath,
-                                              self.geoformat,
-                                              self.date_query,
-                                              self.step,
-                                              self.default_height,
-                                              self.meters_per_level,
-                                              self.walkable_distance,
-                                              self.compute_activity_types_kd,
-                                              self.weighted_kde,
-                                              self.pois_weights,
-                                              self.log_weighted),
-                "graph": GetRouteGraph(self.city, self.datapath,
-                                       self.geoformat, self.date_query)}
+        return {
+            "grid": ComputeGridLandUseMix(
+                self.city,
+                self.datapath,
+                self.geoformat,
+                self.date_query,
+                self.step,
+                self.default_height,
+                self.meters_per_level,
+                self.walkable_distance,
+                self.compute_activity_types_kd,
+                self.weighted_kde,
+                self.pois_weights,
+                self.log_weighted,
+            ),
+            "graph": GetRouteGraph(
+                self.city, self.datapath, self.geoformat, self.date_query
+            ),
+        }
 
     def output(self):
-        data_ident = str(self.step) + "-" + dt.date(self.date_query).isoformat()
-        output_path = define_filename("gridded-indices-land-use-"
-                                      + f"{self.plotted_feature}",
-                                      self.city,
-                                      data_ident,
-                                      self.datapath,
-                                      "png")
+        data_ident = (
+            str(self.step) + "-" + dt.date(self.date_query).isoformat()
+        )
+        output_path = define_filename(
+            "gridded-indices-land-use-" + f"{self.plotted_feature}",
+            self.city,
+            data_ident,
+            self.datapath,
+            "png",
+        )
         return luigi.LocalTarget(output_path)
 
     def run(self):
@@ -869,22 +1080,34 @@ class PlotLandUseMix(luigi.Task):
         valid_features = grid_land_use.columns.tolist()
         valid_features.remove("geometry")
         if not self.plotted_feature in valid_features:
-            raise ValueError("Choose a valid feature to plot amongst"
-                             f" {valid_features}")
+            raise ValueError(
+                "Choose a valid feature to plot amongst" f" {valid_features}"
+            )
         graph = osmnx.load_graphml(self.input()["graph"].path, folder="")
-        fig, ax = osmnx.plot_graph(graph,
-                                   fig_height=self.figsize,
-                                   fig_width=self.figsize,
-                                   close=False,
-                                   show=False,
-                                   edge_color='black',
-                                   edge_alpha=0.3,
-                                   node_alpha=0.1)
+        fig, ax = osmnx.plot_graph(
+            graph,
+            fig_height=self.figsize,
+            fig_width=self.figsize,
+            close=False,
+            show=False,
+            edge_color="black",
+            edge_alpha=0.3,
+            node_alpha=0.1,
+        )
         divider = make_axes_locatable(ax)
         cax = divider.append_axes("right", size="5%", pad=0.2)
-        ax.set_title(f"{self.plotted_feature} kernel density (0: low, 1: high)")
-        grid_land_use.plot(self.plotted_feature, cmap='YlOrRd', ax=ax,
-                           cax=cax, legend=True, vmin=0, vmax=1)
+        ax.set_title(
+            f"{self.plotted_feature} kernel density (0: low, 1: high)"
+        )
+        grid_land_use.plot(
+            self.plotted_feature,
+            cmap="YlOrRd",
+            ax=ax,
+            cax=cax,
+            legend=True,
+            vmin=0,
+            vmax=1,
+        )
         fig.tight_layout()
         fig.savefig(self.output().path)
 
@@ -920,6 +1143,7 @@ class ComputeGridAccessibility(luigi.Task):
             apply natural logarithmic function to surface weights
 
     """
+
     city = luigi.Parameter()
     datapath = luigi.Parameter("./data")
     geoformat = luigi.Parameter("geojson")
@@ -927,8 +1151,8 @@ class ComputeGridAccessibility(luigi.Task):
     step = luigi.IntParameter(default=400)
     default_height = luigi.IntParameter(3)
     meters_per_level = luigi.IntParameter(3)
-    fixed_distance = luigi.BoolParameter() # True
-    fixed_activities = luigi.BoolParameter() # False
+    fixed_distance = luigi.BoolParameter()  # True
+    fixed_activities = luigi.BoolParameter()  # False
     max_edge_length = luigi.IntParameter(200)
     max_node_distance = luigi.IntParameter(250)
     fixed_distance_max_travel_distance = luigi.IntParameter(2000)
@@ -936,25 +1160,41 @@ class ComputeGridAccessibility(luigi.Task):
     fixed_activities_min_number = luigi.IntParameter(20)
 
     def requires(self):
-        return {"grid": GetIndiceGrid(self.city, self.datapath,
-                                      self.geoformat, self.step),
-                "buildings": ComputeLandUse(self.city, self.datapath,
-                                            self.geoformat, self.date_query,
-                                            self.default_height,
-                                            self.meters_per_level),
-                "pois": SetupProjection(self.city, self.datapath,
-                                        self.geoformat, self.date_query,
-                                        "pois"),
-                "graph": GetRouteGraph(self.city, self.datapath,
-                                       self.geoformat, self.date_query)}
+        return {
+            "grid": GetIndiceGrid(
+                self.city, self.datapath, self.geoformat, self.step
+            ),
+            "buildings": ComputeLandUse(
+                self.city,
+                self.datapath,
+                self.geoformat,
+                self.date_query,
+                self.default_height,
+                self.meters_per_level,
+            ),
+            "pois": SetupProjection(
+                self.city,
+                self.datapath,
+                self.geoformat,
+                self.date_query,
+                "pois",
+            ),
+            "graph": GetRouteGraph(
+                self.city, self.datapath, self.geoformat, self.date_query
+            ),
+        }
 
     def output(self):
-        data_ident = str(self.step) + "-" + dt.date(self.date_query).isoformat()
-        output_path = define_filename("gridded-indices-accessibility",
-                                      self.city,
-                                      data_ident,
-                                      self.datapath,
-                                      self.geoformat)
+        data_ident = (
+            str(self.step) + "-" + dt.date(self.date_query).isoformat()
+        )
+        output_path = define_filename(
+            "gridded-indices-accessibility",
+            self.city,
+            data_ident,
+            self.datapath,
+            self.geoformat,
+        )
         return luigi.LocalTarget(output_path)
 
     def run(self):
@@ -962,15 +1202,18 @@ class ComputeGridAccessibility(luigi.Task):
         graph = osmnx.load_graphml(self.input()["graph"].path, folder="")
         buildings = gpd.read_file(self.input()["buildings"].path)
         pois = gpd.read_file(self.input()["pois"].path)
-        accessibility_args = {'fixed_distance': self.fixed_distance,
-                              'fixed_activities': self.fixed_activities,
-                              'max_edge_length': self.max_edge_length,
-                              'max_node_distance': self.max_node_distance,
-			      'fixed_distance_max_travel_distance': self.fixed_distance_max_travel_distance,
-                              'fixed_distance_max_num_activities': self.fixed_distance_max_num_activities,
-                              'fixed_activities_min_number': self.fixed_activities_min_number}
-        compute_grid_accessibility(grid, graph, buildings, pois,
-                                   accessibility_args)
+        accessibility_args = {
+            "fixed_distance": self.fixed_distance,
+            "fixed_activities": self.fixed_activities,
+            "max_edge_length": self.max_edge_length,
+            "max_node_distance": self.max_node_distance,
+            "fixed_distance_max_travel_distance": self.fixed_distance_max_travel_distance,
+            "fixed_distance_max_num_activities": self.fixed_distance_max_num_activities,
+            "fixed_activities_min_number": self.fixed_activities_min_number,
+        }
+        compute_grid_accessibility(
+            grid, graph, buildings, pois, accessibility_args
+        )
         grid.to_file(self.output().path, driver="GeoJSON")
 
 
@@ -1006,6 +1249,7 @@ class PlotAccessibility(luigi.Task):
             apply natural logarithmic function to surface weights
 
     """
+
     city = luigi.Parameter()
     datapath = luigi.Parameter("./data")
     geoformat = luigi.Parameter("geojson")
@@ -1013,8 +1257,8 @@ class PlotAccessibility(luigi.Task):
     step = luigi.IntParameter(default=400)
     default_height = luigi.IntParameter(3)
     meters_per_level = luigi.IntParameter(3)
-    fixed_distance = luigi.BoolParameter() # True
-    fixed_activities = luigi.BoolParameter() # False
+    fixed_distance = luigi.BoolParameter()  # True
+    fixed_activities = luigi.BoolParameter()  # False
     max_edge_length = luigi.IntParameter(200)
     max_node_distance = luigi.IntParameter(250)
     fixed_distance_max_travel_distance = luigi.IntParameter(2000)
@@ -1023,52 +1267,68 @@ class PlotAccessibility(luigi.Task):
     figsize = luigi.IntParameter(8)
 
     def requires(self):
-        return {"grid": ComputeGridAccessibility(self.city, self.datapath,
-                                                 self.geoformat,
-                                                 self.date_query,
-                                                 self.step,
-                                                 self.default_height,
-                                                 self.meters_per_level,
-                                                 self.fixed_distance,
-                                                 self.fixed_activities,
-                                                 self.max_edge_length,
-                                                 self.max_node_distance,
-                                                 self.fixed_distance_max_travel_distance,
-                                                 self.fixed_distance_max_num_activities,
-                                                 self.fixed_activities_min_number),
-                "graph": GetRouteGraph(self.city, self.datapath,
-                                       self.geoformat, self.date_query)}
+        return {
+            "grid": ComputeGridAccessibility(
+                self.city,
+                self.datapath,
+                self.geoformat,
+                self.date_query,
+                self.step,
+                self.default_height,
+                self.meters_per_level,
+                self.fixed_distance,
+                self.fixed_activities,
+                self.max_edge_length,
+                self.max_node_distance,
+                self.fixed_distance_max_travel_distance,
+                self.fixed_distance_max_num_activities,
+                self.fixed_activities_min_number,
+            ),
+            "graph": GetRouteGraph(
+                self.city, self.datapath, self.geoformat, self.date_query
+            ),
+        }
 
     def output(self):
-        data_ident = str(self.step) + "-" + dt.date(self.date_query).isoformat()
-        output_path = define_filename("gridded-indices-accessibility",
-                                      self.city,
-                                      data_ident,
-                                      self.datapath,
-                                      "png")
+        data_ident = (
+            str(self.step) + "-" + dt.date(self.date_query).isoformat()
+        )
+        output_path = define_filename(
+            "gridded-indices-accessibility",
+            self.city,
+            data_ident,
+            self.datapath,
+            "png",
+        )
         return luigi.LocalTarget(output_path)
 
     def run(self):
         grid_accessibility = gpd.read_file(self.input()["grid"].path)
         graph = osmnx.load_graphml(self.input()["graph"].path, folder="")
-        fig, ax = osmnx.plot_graph(graph,
-                                   fig_height=self.figsize,
-                                   fig_width=self.figsize,
-                                   close=False,
-                                   show=False,
-                                   edge_color='black',
-                                   edge_alpha=0.3,
-                                   node_alpha=0.1)
+        fig, ax = osmnx.plot_graph(
+            graph,
+            fig_height=self.figsize,
+            fig_width=self.figsize,
+            close=False,
+            show=False,
+            edge_color="black",
+            edge_alpha=0.3,
+            node_alpha=0.1,
+        )
         divider = make_axes_locatable(ax)
         cax = divider.append_axes("right", size="5%", pad=0.2)
-        ax.set_title("Accessibility (measured as the number of accessible POIs)")
-        grid_accessibility.plot("accessibility",
-                                cmap='YlOrRd',
-                                ax=ax,
-                                cax=cax,
-                                legend=True,
-                                vmin=0,
-                                vmax=self.fixed_distance_max_num_activities)
+        ax.set_title(
+            "Accessibility (measured as the number of accessible POIs)"
+        )
+        grid_accessibility.plot(
+            "accessibility",
+            cmap="YlOrRd",
+            ax=ax,
+            cax=cax,
+            legend=True,
+            vmin=0,
+            vmax=self.fixed_distance_max_num_activities,
+        )
         fig.tight_layout()
         fig.savefig(self.output().path)
 
@@ -1105,6 +1365,7 @@ class ComputeGridDispersion(luigi.Task):
             apply natural logarithmic function to surface weights
 
     """
+
     city = luigi.Parameter()
     datapath = luigi.Parameter("./data")
     geoformat = luigi.Parameter("geojson")
@@ -1113,32 +1374,45 @@ class ComputeGridDispersion(luigi.Task):
     default_height = luigi.IntParameter(3)
     meters_per_level = luigi.IntParameter(3)
     radius_search = luigi.IntParameter(750)
-    use_median = luigi.BoolParameter() # False
+    use_median = luigi.BoolParameter()  # False
     K_nearest = luigi.IntParameter(50)
 
     def requires(self):
-        return {"grid": GetIndiceGrid(self.city, self.datapath,
-                                      self.geoformat, self.step),
-                "buildings": ComputeLandUse(self.city, self.datapath,
-                                            self.geoformat, self.date_query,
-                                            self.default_height,
-                                            self.meters_per_level)}
+        return {
+            "grid": GetIndiceGrid(
+                self.city, self.datapath, self.geoformat, self.step
+            ),
+            "buildings": ComputeLandUse(
+                self.city,
+                self.datapath,
+                self.geoformat,
+                self.date_query,
+                self.default_height,
+                self.meters_per_level,
+            ),
+        }
 
     def output(self):
-        data_ident = str(self.step) + "-" + dt.date(self.date_query).isoformat()
-        output_path = define_filename("gridded-indices-dispersion",
-                                      self.city,
-                                      data_ident,
-                                      self.datapath,
-                                      self.geoformat)
+        data_ident = (
+            str(self.step) + "-" + dt.date(self.date_query).isoformat()
+        )
+        output_path = define_filename(
+            "gridded-indices-dispersion",
+            self.city,
+            data_ident,
+            self.datapath,
+            self.geoformat,
+        )
         return luigi.LocalTarget(output_path)
 
     def run(self):
         grid = gpd.read_file(self.input()["grid"].path)
         buildings = gpd.read_file(self.input()["buildings"].path)
-        dispersion_args = {'radius_search': self.radius_search,
-                           'use_median': self.use_median,
-                           'K_nearest': self.K_nearest}
+        dispersion_args = {
+            "radius_search": self.radius_search,
+            "use_median": self.use_median,
+            "K_nearest": self.K_nearest,
+        }
         compute_grid_dispersion(grid, buildings, dispersion_args)
         grid.to_file(self.output().path, driver="GeoJSON")
 
@@ -1175,6 +1449,7 @@ class PlotDispersion(luigi.Task):
             apply natural logarithmic function to surface weights
 
     """
+
     city = luigi.Parameter()
     datapath = luigi.Parameter("./data")
     geoformat = luigi.Parameter("geojson")
@@ -1183,48 +1458,69 @@ class PlotDispersion(luigi.Task):
     default_height = luigi.IntParameter(3)
     meters_per_level = luigi.IntParameter(3)
     radius_search = luigi.IntParameter(750)
-    use_median = luigi.BoolParameter() # False
+    use_median = luigi.BoolParameter()  # False
     K_nearest = luigi.IntParameter(50)
     figsize = luigi.IntParameter(8)
 
     def requires(self):
-        return {"grid": ComputeGridDispersion(self.city, self.datapath,
-                                              self.geoformat,
-                                              self.date_query,
-                                              self.step,
-                                              self.default_height,
-                                              self.meters_per_level,
-                                              self.radius_search,
-                                              self.use_median,
-                                              self.K_nearest),
-                "graph": GetRouteGraph(self.city, self.datapath,
-                                       self.geoformat, self.date_query)}
+        return {
+            "grid": ComputeGridDispersion(
+                self.city,
+                self.datapath,
+                self.geoformat,
+                self.date_query,
+                self.step,
+                self.default_height,
+                self.meters_per_level,
+                self.radius_search,
+                self.use_median,
+                self.K_nearest,
+            ),
+            "graph": GetRouteGraph(
+                self.city, self.datapath, self.geoformat, self.date_query
+            ),
+        }
 
     def output(self):
-        data_ident = str(self.step) + "-" + dt.date(self.date_query).isoformat()
-        output_path = define_filename("gridded-indices-dispersion",
-                                      self.city,
-                                      data_ident,
-                                      self.datapath,
-                                      "png")
+        data_ident = (
+            str(self.step) + "-" + dt.date(self.date_query).isoformat()
+        )
+        output_path = define_filename(
+            "gridded-indices-dispersion",
+            self.city,
+            data_ident,
+            self.datapath,
+            "png",
+        )
         return luigi.LocalTarget(output_path)
 
     def run(self):
         grid_dispersion = gpd.read_file(self.input()["grid"].path)
         graph = osmnx.load_graphml(self.input()["graph"].path, folder="")
-        fig, ax = osmnx.plot_graph(graph,
-                                   fig_height=self.figsize,
-                                   fig_width=self.figsize,
-                                   close=False,
-                                   show=False,
-                                   edge_color='black',
-                                   edge_alpha=0.3,
-                                   node_alpha=0.1)
+        fig, ax = osmnx.plot_graph(
+            graph,
+            fig_height=self.figsize,
+            fig_width=self.figsize,
+            close=False,
+            show=False,
+            edge_color="black",
+            edge_alpha=0.3,
+            node_alpha=0.1,
+        )
         divider = make_axes_locatable(ax)
         cax = divider.append_axes("right", size="5%", pad=0.2)
-        ax.set_title("Dispersion (averaged distance between buildings, in meters)")
-        grid_dispersion.plot("dispersion", cmap='YlOrRd', ax=ax,
-                             cax=cax, legend=True, vmin=0, vmax=10)
+        ax.set_title(
+            "Dispersion (averaged distance between buildings, in meters)"
+        )
+        grid_dispersion.plot(
+            "dispersion",
+            cmap="YlOrRd",
+            ax=ax,
+            cax=cax,
+            legend=True,
+            vmin=0,
+            vmax=10,
+        )
         fig.tight_layout()
         fig.savefig(self.output().path)
 
@@ -1241,12 +1537,13 @@ class GetINSEEData(luigi.Task):
     datapath : str
         Path to the data folder on the file system
     """
+
     datapath = luigi.Parameter("./data")
 
     @property
     def path(self):
         return os.path.join(
-            self.datapath, "insee", '200m-carreaux-metropole.zip'
+            self.datapath, "insee", "200m-carreaux-metropole.zip"
         )
 
     @property
@@ -1257,7 +1554,7 @@ class GetINSEEData(luigi.Task):
         return luigi.LocalTarget(self.path, format=MixedUnicodeBytes)
 
     def run(self):
-        with self.output().open('w') as fobj:
+        with self.output().open("w") as fobj:
             resp = requests.get(self.url)
             resp.raise_for_status()
             fobj.write(resp.content)
@@ -1276,6 +1573,7 @@ class GetGPWData(luigi.Task):
     datapath : str
         Path to the data folder on the file system
     """
+
     datapath = luigi.Parameter("./data")
 
     @property
@@ -1284,9 +1582,7 @@ class GetGPWData(luigi.Task):
 
     @property
     def path(self):
-        return os.path.join(
-            self.datapath, "gpw", self.filename + ".zip"
-        )
+        return os.path.join(self.datapath, "gpw", self.filename + ".zip")
 
     @property
     def url(self):
@@ -1297,13 +1593,13 @@ class GetGPWData(luigi.Task):
 
     def run(self):
         with requests.Session() as session:
-            r1 = session.request("get", self.url) # Handle redirection
+            r1 = session.request("get", self.url)  # Handle redirection
             login = config.get("credentials", "login")
             password = config.get("credentials", "pw")
             resp = requests.get(r1.url, auth=(login, password))
             resp.raise_for_status()
-            with self.output().open('w') as fobj:
-                for chunk in resp.iter_content(chunk_size=1024*1024):
+            with self.output().open("w") as fobj:
+                for chunk in resp.iter_content(chunk_size=1024 * 1024):
                     fobj.write(chunk)
 
 
@@ -1321,6 +1617,7 @@ class UnzipData(luigi.Task):
     datasource : str
         Name of the data source, either 'insee' or 'gpw'
     """
+
     datapath = luigi.Parameter("./data")
     datasource = luigi.Parameter("insee")
 
@@ -1332,12 +1629,12 @@ class UnzipData(luigi.Task):
     def path(self):
         if self.datasource == "insee":
             return os.path.join(
-                self.datapath, self.datasource, '200m-carreaux-metropole.zip'
+                self.datapath, self.datasource, "200m-carreaux-metropole.zip"
             )
         elif self.datasource == "gpw":
             return os.path.join(
                 self.datapath, self.datasource, self.gpw_filename + ".zip"
-                )
+            )
         else:
             raise ValueError("Unknown data source, choose 'insee' or 'gpw'.")
 
@@ -1354,7 +1651,7 @@ class UnzipData(luigi.Task):
         return luigi.LocalTarget(filepath)
 
     def run(self):
-        with self.output().open('w') as fobj:
+        with self.output().open("w") as fobj:
             zip_ref = zipfile.ZipFile(self.path)
             fobj.write("\n".join(elt.filename for elt in zip_ref.filelist))
             fobj.write("\n")
@@ -1373,6 +1670,7 @@ class StoreINSEEGridAsShapefile(luigi.Task):
         Path towards the data on the file system
 
     """
+
     datapath = luigi.Parameter("./data")
 
     def requires(self):
@@ -1388,11 +1686,16 @@ class StoreINSEEGridAsShapefile(luigi.Task):
         input_filename = os.path.join(
             self.datapath, "insee", "200m-carreaux-metropole", "car_m.mif"
         )
-        ogr2ogr_args = ["-f", "ESRI Shapefile",
-                        self.output().path,
-                        input_filename,
-                        "-s_srs", "EPSG:27572",
-                        "-t_srs", "EPSG:4326"]
+        ogr2ogr_args = [
+            "-f",
+            "ESRI Shapefile",
+            self.output().path,
+            input_filename,
+            "-s_srs",
+            "EPSG:27572",
+            "-t_srs",
+            "EPSG:4326",
+        ]
         sh.ogr2ogr(ogr2ogr_args)
 
 
@@ -1415,6 +1718,7 @@ class ExtractLocalINSEEData(luigi.Task):
     meters_per_level : int
         Default height per level, in meter (default: 3 meters)
     """
+
     city = luigi.Parameter()
     datapath = luigi.Parameter("./data")
     geoformat = luigi.Parameter("geojson")
@@ -1423,12 +1727,18 @@ class ExtractLocalINSEEData(luigi.Task):
     meters_per_level = luigi.IntParameter(3)
 
     def requires(self):
-        return {"data": UnzipINSEEData(self.datapath),
-                "grid": StoreINSEEGridAsShapefile(self.datapath),
-                "buildings": ComputeLandUse(self.city, self.datapath,
-                                            self.geoformat, self.date_query,
-                                            self.default_height,
-                                            self.meters_per_level)}
+        return {
+            "data": UnzipINSEEData(self.datapath),
+            "grid": StoreINSEEGridAsShapefile(self.datapath),
+            "buildings": ComputeLandUse(
+                self.city,
+                self.datapath,
+                self.geoformat,
+                self.date_query,
+                self.default_height,
+                self.meters_per_level,
+            ),
+        }
 
     def output(self):
         filepath = os.path.join(
@@ -1453,8 +1763,8 @@ class ExtractLocalINSEEData(luigi.Task):
             pop_shapefile=insee_data_filename,
             pop_data_file=population_count_filename,
             to_crs=buildings.crs,
-            polygons_gdf=buildings
-            )
+            polygons_gdf=buildings,
+        )
         local_insee_pop.to_file(self.output().path, driver="GeoJSON")
 
 
@@ -1478,6 +1788,7 @@ class PlotINSEEData(luigi.Task):
     meters_per_level : int
         Default height per level, in meter (default: 3 meters)
     """
+
     city = luigi.Parameter()
     datapath = luigi.Parameter("./data")
     geoformat = luigi.Parameter("geojson")
@@ -1487,13 +1798,19 @@ class PlotINSEEData(luigi.Task):
     figsize = luigi.IntParameter(8)
 
     def requires(self):
-        return {"population": ExtractLocalINSEEData(self.city, self.datapath,
-                                                    self.geoformat,
-                                                    self.date_query,
-                                                    self.default_height,
-                                                    self.meters_per_level),
-                "graph": GetRouteGraph(self.city, self.datapath,
-                                       self.geoformat, self.date_query)}
+        return {
+            "population": ExtractLocalINSEEData(
+                self.city,
+                self.datapath,
+                self.geoformat,
+                self.date_query,
+                self.default_height,
+                self.meters_per_level,
+            ),
+            "graph": GetRouteGraph(
+                self.city, self.datapath, self.geoformat, self.date_query
+            ),
+        }
 
     def output(self):
         filepath = os.path.join(
@@ -1510,13 +1827,20 @@ class PlotINSEEData(luigi.Task):
         with open(proj_path) as fobj:
             population.crs = json.load(fobj)
         fig, ax = osmnx.plot_graph(
-            graph, fig_height=self.figsize, fig_width=self.figsize, close=False,
-            show=False, edge_color='black', edge_alpha=0.15, node_alpha=0.05
+            graph,
+            fig_height=self.figsize,
+            fig_width=self.figsize,
+            close=False,
+            show=False,
+            edge_color="black",
+            edge_alpha=0.15,
+            node_alpha=0.05,
         )
         divider = make_axes_locatable(ax)
         cax = divider.append_axes("right", size="5%", pad=0.2)
-        population.plot("pop_count", ax=ax, cax=cax,
-                        cmap='YlOrRd', legend=True, vmin=0)
+        population.plot(
+            "pop_count", ax=ax, cax=cax, cmap="YlOrRd", legend=True, vmin=0
+        )
         ax.set_title("INSEE gridded population (in inhabitants)", fontsize=15)
         fig.tight_layout()
         fig.savefig(self.output().path)
@@ -1534,6 +1858,7 @@ class ExtractLocalGPWData(luigi.Task):
     city : str
         Place of interest
     """
+
     datapath = luigi.Parameter("./data")
     city = luigi.Parameter()
 
@@ -1544,7 +1869,7 @@ class ExtractLocalGPWData(luigi.Task):
     def requires(self):
         return {
             "gpw": UnzipData(self.datapath, "gpw"),
-            "bbox": GetBoundingBox(self.city, self.datapath)
+            "bbox": GetBoundingBox(self.city, self.datapath),
         }
 
     def output(self):
@@ -1555,13 +1880,15 @@ class ExtractLocalGPWData(luigi.Task):
 
     def run(self):
         city_gdf = gpd.read_file(self.input()["bbox"].path)
-        north, south, east, west = city_gdf.loc[0, ["bbox_north", "bbox_south",
-                                                    "bbox_east", "bbox_west"]]
+        north, south, east, west = city_gdf.loc[
+            0, ["bbox_north", "bbox_south", "bbox_east", "bbox_west"]
+        ]
         gdal.Translate(
             self.output().path,
             os.path.join(self.datapath, "gpw", self.filename + ".tif"),
-            projWin=[west, north, east, south]
+            projWin=[west, north, east, south],
         )
+
 
 class VectorizeLocalGPWData(luigi.Task):
     """Transform local GPW data as a geojson file in order to process the data
@@ -1575,6 +1902,7 @@ class VectorizeLocalGPWData(luigi.Task):
     city : str
         Place of interest
     """
+
     datapath = luigi.Parameter("./data")
     city = luigi.Parameter()
 
@@ -1594,15 +1922,20 @@ class VectorizeLocalGPWData(luigi.Task):
         driver = ogr.GetDriverByName("GeoJSON")
         dst_ds = driver.CreateDataSource(self.output().path)
         srs = osr.SpatialReference()
-        srs.ImportFromWkt( src_ds.GetProjectionRef() )
+        srs.ImportFromWkt(src_ds.GetProjectionRef())
         dst_layer = dst_ds.CreateLayer(
-            "out_layer", geom_type=ogr.wkbPolygon, srs = srs
+            "out_layer", geom_type=ogr.wkbPolygon, srs=srs
         )
-        fd = ogr.FieldDefn( "pop_count", ogr.OFTInteger )
-        dst_layer.CreateField( fd )
+        fd = ogr.FieldDefn("pop_count", ogr.OFTInteger)
+        dst_layer.CreateField(fd)
         dst_field = 0
         gdal.Polygonize(
-            band, maskband, dst_layer, dst_field, [], callback=gdal.TermProgress
+            band,
+            maskband,
+            dst_layer,
+            dst_field,
+            [],
+            callback=gdal.TermProgress,
         )
         band = maskband = src_ds = dst_ds = None
 
@@ -1623,6 +1956,7 @@ class PlotGPWData(luigi.Task):
         Date to which the OpenStreetMap data must be recovered (format:
     AAAA-MM-DDThhmm)
     """
+
     city = luigi.Parameter()
     datapath = luigi.Parameter("./data")
     geoformat = luigi.Parameter("geojson")
@@ -1630,17 +1964,22 @@ class PlotGPWData(luigi.Task):
     figsize = luigi.IntParameter(8)
 
     def requires(self):
-        return {"population": VectorizeLocalGPWData(self.datapath, self.city),
-                "graph": GetRouteGraph(self.city, self.datapath,
-                                       self.geoformat, self.date_query),
-                "proj": SetupProjection(self.city, self.datapath,
-                                        self.geoformat, self.date_query,
-                                        "pois")}
+        return {
+            "population": VectorizeLocalGPWData(self.datapath, self.city),
+            "graph": GetRouteGraph(
+                self.city, self.datapath, self.geoformat, self.date_query
+            ),
+            "proj": SetupProjection(
+                self.city,
+                self.datapath,
+                self.geoformat,
+                self.date_query,
+                "pois",
+            ),
+        }
 
     def output(self):
-        filepath = os.path.join(
-            self.datapath, self.city, "gpw_population.png"
-        )
+        filepath = os.path.join(self.datapath, self.city, "gpw_population.png")
         return luigi.LocalTarget(filepath)
 
     def run(self):
@@ -1654,13 +1993,20 @@ class PlotGPWData(luigi.Task):
             population.to_crs(json.load(f), inplace=True)
         graph = osmnx.load_graphml(self.input()["graph"].path, folder="")
         fig, ax = osmnx.plot_graph(
-            graph, fig_height=self.figsize, fig_width=self.figsize, close=False,
-            show=False, edge_color='black', edge_alpha=0.15, node_alpha=0.05
+            graph,
+            fig_height=self.figsize,
+            fig_width=self.figsize,
+            close=False,
+            show=False,
+            edge_color="black",
+            edge_alpha=0.15,
+            node_alpha=0.05,
         )
         divider = make_axes_locatable(ax)
         cax = divider.append_axes("right", size="5%", pad=0.2)
-        population.plot("pop_count", ax=ax, cax=cax,
-                        cmap='YlOrRd', legend=True, vmin=0)
+        population.plot(
+            "pop_count", ax=ax, cax=cax, cmap="YlOrRd", legend=True, vmin=0
+        )
         ax.set_title("GPW gridded population (in inhabitants)", fontsize=15)
         fig.tight_layout()
         fig.savefig(self.output().path)
@@ -1706,6 +2052,7 @@ class ComputePopulationFeatures(luigi.Task):
     use_median : bool
     K_nearest : int
     """
+
     city = luigi.Parameter()
     datapath = luigi.Parameter("./data")
     geoformat = luigi.Parameter("geojson")
@@ -1719,41 +2066,61 @@ class ComputePopulationFeatures(luigi.Task):
     pois_weights = luigi.IntParameter(9)
     log_weighted = luigi.BoolParameter()
     radius_search = luigi.IntParameter(750)
-    use_median = luigi.BoolParameter() # False
+    use_median = luigi.BoolParameter()  # False
     K_nearest = luigi.IntParameter(50)
 
     def requires(self):
-        return {"buildings": ComputeLandUse(self.city, self.datapath,
-                                            self.geoformat, self.date_query,
-                                            self.default_height,
-                                            self.meters_per_level),
-                "pois": SetupProjection(self.city, self.datapath,
-                                        self.geoformat, self.date_query,
-                                        "pois"),
-                "landuse": ComputeGridLandUseMix(self.city, self.datapath,
-                                                 self.geoformat,
-                                                 self.date_query,
-                                                 self.step,
-                                                 self.default_height,
-                                                 self.meters_per_level,
-                                                 self.walkable_distance,
-                                                 self.compute_activity_types_kd,
-                                                 self.weighted_kde,
-                                                 self.pois_weights,
-                                                 self.log_weighted),
-                "dispersion": ComputeGridDispersion(self.city, self.datapath,
-                                                    self.geoformat,
-                                                    self.date_query,
-                                                    self.step,
-                                                    self.default_height,
-                                                    self.meters_per_level,
-                                                    self.radius_search,
-                                                    self.use_median,
-                                                    self.K_nearest),
-                "insee": ExtractLocalINSEEData(self.city, self.datapath,
-                                               self.geoformat, self.date_query,
-                                               self.default_height,
-                                               self.meters_per_level)}
+        return {
+            "buildings": ComputeLandUse(
+                self.city,
+                self.datapath,
+                self.geoformat,
+                self.date_query,
+                self.default_height,
+                self.meters_per_level,
+            ),
+            "pois": SetupProjection(
+                self.city,
+                self.datapath,
+                self.geoformat,
+                self.date_query,
+                "pois",
+            ),
+            "landuse": ComputeGridLandUseMix(
+                self.city,
+                self.datapath,
+                self.geoformat,
+                self.date_query,
+                self.step,
+                self.default_height,
+                self.meters_per_level,
+                self.walkable_distance,
+                self.compute_activity_types_kd,
+                self.weighted_kde,
+                self.pois_weights,
+                self.log_weighted,
+            ),
+            "dispersion": ComputeGridDispersion(
+                self.city,
+                self.datapath,
+                self.geoformat,
+                self.date_query,
+                self.step,
+                self.default_height,
+                self.meters_per_level,
+                self.radius_search,
+                self.use_median,
+                self.K_nearest,
+            ),
+            "insee": ExtractLocalINSEEData(
+                self.city,
+                self.datapath,
+                self.geoformat,
+                self.date_query,
+                self.default_height,
+                self.meters_per_level,
+            ),
+        }
 
     def output(self):
         filepath = os.path.join(
@@ -1775,21 +2142,27 @@ class ComputePopulationFeatures(luigi.Task):
             buildings.crs = utm_proj
             pois.crs = utm_proj
             insee_pop.crs = utm_proj
-        landusemix_args = {'walkable_distance': self.walkable_distance,
-                           'compute_activity_types_kde': self.compute_activity_types_kd,
-                           'weighted_kde': self.weighted_kde,
-                           'pois_weight': self.pois_weights,
-                           'log_weighted': self.log_weighted}
-        dispersion_args = {'radius_search': self.radius_search,
-                           'use_median': self.use_median,
-                           'K_nearest': self.K_nearest}
-        gdf = compute_full_urban_features(self.city,
-                                          buildings,
-                                          pois,
-                                          insee_pop,
-                                          "insee",
-                                          landusemix_args,
-                                          dispersion_args)
+        landusemix_args = {
+            "walkable_distance": self.walkable_distance,
+            "compute_activity_types_kde": self.compute_activity_types_kd,
+            "weighted_kde": self.weighted_kde,
+            "pois_weight": self.pois_weights,
+            "log_weighted": self.log_weighted,
+        }
+        dispersion_args = {
+            "radius_search": self.radius_search,
+            "use_median": self.use_median,
+            "K_nearest": self.K_nearest,
+        }
+        gdf = compute_full_urban_features(
+            self.city,
+            buildings,
+            pois,
+            insee_pop,
+            "insee",
+            landusemix_args,
+            dispersion_args,
+        )
         gdf.to_file(self.output().path, driver="GeoJSON")
 
 
@@ -1835,6 +2208,7 @@ class SplitPopulationFeatures(luigi.Task):
     use_median : bool
     K_nearest : int
     """
+
     city = luigi.Parameter()
     datapath = luigi.Parameter("./data")
     geoformat = luigi.Parameter("geojson")
@@ -1848,22 +2222,27 @@ class SplitPopulationFeatures(luigi.Task):
     pois_weights = luigi.IntParameter(9)
     log_weighted = luigi.BoolParameter()
     radius_search = luigi.IntParameter(750)
-    use_median = luigi.BoolParameter() # False
+    use_median = luigi.BoolParameter()  # False
     K_nearest = luigi.IntParameter(50)
 
     def requires(self):
-        return ComputePopulationFeatures(self.city, self.datapath,
-                                         self.geoformat, self.date_query,
-                                         self.step, self.default_height,
-                                         self.meters_per_level,
-                                         self.walkable_distance,
-                                         self.compute_activity_types_kd,
-                                         self.weighted_kde,
-                                         self.pois_weights,
-                                         self.log_weighted,
-                                         self.radius_search,
-                                         self.use_median,
-                                         self.K_nearest)
+        return ComputePopulationFeatures(
+            self.city,
+            self.datapath,
+            self.geoformat,
+            self.date_query,
+            self.step,
+            self.default_height,
+            self.meters_per_level,
+            self.walkable_distance,
+            self.compute_activity_types_kd,
+            self.weighted_kde,
+            self.pois_weights,
+            self.log_weighted,
+            self.radius_search,
+            self.use_median,
+            self.K_nearest,
+        )
 
     def output(self):
         filepath = os.path.join(
@@ -1931,6 +2310,7 @@ class TrainPopulationDownscalingModel(luigi.Task):
     epochs : int
         Number of times the data are exploited during training process
     """
+
     training_cities = luigi.ListParameter()
     validation_cities = luigi.ListParameter()
     datapath = luigi.Parameter("./data")
@@ -1945,7 +2325,7 @@ class TrainPopulationDownscalingModel(luigi.Task):
     pois_weights = luigi.IntParameter(9)
     log_weighted = luigi.BoolParameter()
     radius_search = luigi.IntParameter(750)
-    use_median = luigi.BoolParameter() # False
+    use_median = luigi.BoolParameter()  # False
     K_nearest = luigi.IntParameter(50)
     batch_size = luigi.IntParameter(32)
     epochs = luigi.IntParameter(50)
@@ -1953,18 +2333,29 @@ class TrainPopulationDownscalingModel(luigi.Task):
     def requires(self):
         for city in self.training_cities + self.validation_cities:
             yield SplitPopulationFeatures(
-                city, self.datapath, self.geoformat, self.date_query,
-                self.step, self.default_height, self.meters_per_level,
-                self.walkable_distance, self.compute_activity_types_kd,
-                self.weighted_kde, self.pois_weights, self.log_weighted,
-                self.radius_search, self.use_median, self.K_nearest
+                city,
+                self.datapath,
+                self.geoformat,
+                self.date_query,
+                self.step,
+                self.default_height,
+                self.meters_per_level,
+                self.walkable_distance,
+                self.compute_activity_types_kd,
+                self.weighted_kde,
+                self.pois_weights,
+                self.log_weighted,
+                self.radius_search,
+                self.use_median,
+                self.K_nearest,
             )
 
     def output(self):
         isodate = dt.date(self.date_query).isoformat()
         filepath = os.path.join(
-            self.datapath, "training",
-            "checkpoint-step" + str(self.epochs) + "-" + isodate + ".h5"
+            self.datapath,
+            "training",
+            "checkpoint-step" + str(self.epochs) + "-" + isodate + ".h5",
         )
         return luigi.LocalTarget(filepath)
 
@@ -1976,8 +2367,13 @@ class TrainPopulationDownscalingModel(luigi.Task):
             cities_selection=self.validation_cities
         )
         hist = train_population_downscaling_model(
-            X_train, Y_train, X_val, Y_val,
-            self.batch_size, self.epochs, self.output().path
+            X_train,
+            Y_train,
+            X_val,
+            Y_val,
+            self.batch_size,
+            self.epochs,
+            self.output().path,
         )
         fig = plt.figure()
         ax = fig.add_subplot(1, 1, 1)
@@ -2037,6 +2433,7 @@ class InferINSEEPopulationDownscaling(luigi.Task):
     epochs : int
         Number of times the data are exploited during training process
     """
+
     city = luigi.Parameter()
     training_cities = luigi.ListParameter()
     validation_cities = luigi.ListParameter()
@@ -2052,26 +2449,48 @@ class InferINSEEPopulationDownscaling(luigi.Task):
     pois_weights = luigi.IntParameter(9)
     log_weighted = luigi.BoolParameter()
     radius_search = luigi.IntParameter(750)
-    use_median = luigi.BoolParameter() # False
+    use_median = luigi.BoolParameter()  # False
     K_nearest = luigi.IntParameter(50)
     batch_size = luigi.IntParameter(32)
     epochs = luigi.IntParameter(50)
 
     def requires(self):
-        return {"model": TrainPopulationDownscalingModel(
-            self.training_cities, self.validation_cities,
-            self.datapath, self.geoformat, self.date_query,
-            self.step, self.default_height, self.meters_per_level,
-            self.walkable_distance, self.compute_activity_types_kd,
-            self.weighted_kde, self.pois_weights, self.log_weighted,
-            self.radius_search, self.use_median, self.K_nearest),
-                "features": SplitPopulationFeatures(
-                    self.city, self.datapath, self.geoformat, self.date_query,
-                    self.step, self.default_height, self.meters_per_level,
-                    self.walkable_distance, self.compute_activity_types_kd,
-                    self.weighted_kde, self.pois_weights, self.log_weighted,
-                    self.radius_search, self.use_median, self.K_nearest
-                )
+        return {
+            "model": TrainPopulationDownscalingModel(
+                self.training_cities,
+                self.validation_cities,
+                self.datapath,
+                self.geoformat,
+                self.date_query,
+                self.step,
+                self.default_height,
+                self.meters_per_level,
+                self.walkable_distance,
+                self.compute_activity_types_kd,
+                self.weighted_kde,
+                self.pois_weights,
+                self.log_weighted,
+                self.radius_search,
+                self.use_median,
+                self.K_nearest,
+            ),
+            "features": SplitPopulationFeatures(
+                self.city,
+                self.datapath,
+                self.geoformat,
+                self.date_query,
+                self.step,
+                self.default_height,
+                self.meters_per_level,
+                self.walkable_distance,
+                self.compute_activity_types_kd,
+                self.weighted_kde,
+                self.pois_weights,
+                self.log_weighted,
+                self.radius_search,
+                self.use_median,
+                self.K_nearest,
+            ),
         }
 
     def output(self):
@@ -2092,7 +2511,6 @@ class InferINSEEPopulationDownscaling(luigi.Task):
         np.savez(self.output().path, y_pred=y_pred)
 
 
-
 class CreateInferenceGrid(luigi.Task):
     """Create a set of georeferenced points starting from the GPW data where to
     compute the urbansprawl features. Such data may be taken as the input for
@@ -2103,6 +2521,7 @@ class CreateInferenceGrid(luigi.Task):
     city : str
         City of interest
     """
+
     datapath = luigi.Parameter("./data")
     city = luigi.Parameter()
 
@@ -2112,7 +2531,7 @@ class CreateInferenceGrid(luigi.Task):
     def output(self):
         os.makedirs(os.path.join(self.datapath, "inference"), exist_ok=True)
         filepath = os.path.join(
-            self.datapath, self.city ,"inference_grid.geojson"
+            self.datapath, self.city, "inference_grid.geojson"
         )
         return luigi.LocalTarget(filepath)
 
@@ -2165,6 +2584,7 @@ class InferGPWPopulationDownscaling(luigi.Task):
     epochs : int
         Number of times the data are exploited during training process
     """
+
     city = luigi.Parameter()
     training_cities = luigi.ListParameter()
     validation_cities = luigi.ListParameter()
@@ -2180,26 +2600,48 @@ class InferGPWPopulationDownscaling(luigi.Task):
     pois_weights = luigi.IntParameter(9)
     log_weighted = luigi.BoolParameter()
     radius_search = luigi.IntParameter(750)
-    use_median = luigi.BoolParameter() # False
+    use_median = luigi.BoolParameter()  # False
     K_nearest = luigi.IntParameter(50)
     batch_size = luigi.IntParameter(32)
     epochs = luigi.IntParameter(50)
 
     def requires(self):
-        return {"model": TrainPopulationDownscalingModel(
-            self.training_cities, self.validation_cities,
-            self.datapath, self.geoformat, self.date_query,
-            self.step, self.default_height, self.meters_per_level,
-            self.walkable_distance, self.compute_activity_types_kd,
-            self.weighted_kde, self.pois_weights, self.log_weighted,
-            self.radius_search, self.use_median, self.K_nearest),
-                "features": SplitPopulationFeatures(
-                    self.city, self.datapath, self.geoformat, self.date_query,
-                    self.step, self.default_height, self.meters_per_level,
-                    self.walkable_distance, self.compute_activity_types_kd,
-                    self.weighted_kde, self.pois_weights, self.log_weighted,
-                    self.radius_search, self.use_median, self.K_nearest
-                )
+        return {
+            "model": TrainPopulationDownscalingModel(
+                self.training_cities,
+                self.validation_cities,
+                self.datapath,
+                self.geoformat,
+                self.date_query,
+                self.step,
+                self.default_height,
+                self.meters_per_level,
+                self.walkable_distance,
+                self.compute_activity_types_kd,
+                self.weighted_kde,
+                self.pois_weights,
+                self.log_weighted,
+                self.radius_search,
+                self.use_median,
+                self.K_nearest,
+            ),
+            "features": SplitPopulationFeatures(
+                self.city,
+                self.datapath,
+                self.geoformat,
+                self.date_query,
+                self.step,
+                self.default_height,
+                self.meters_per_level,
+                self.walkable_distance,
+                self.compute_activity_types_kd,
+                self.weighted_kde,
+                self.pois_weights,
+                self.log_weighted,
+                self.radius_search,
+                self.use_median,
+                self.K_nearest,
+            ),
         }
 
     def output(self):

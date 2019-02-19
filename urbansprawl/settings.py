@@ -3,5 +3,5 @@
 # MIT License
 ###################################################################################################
 
-storage_folder = 'data'
-images_folder = 'images'
+storage_folder = "data"
+images_folder = "images"
