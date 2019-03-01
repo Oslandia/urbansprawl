@@ -3,10 +3,11 @@
 # MIT License
 ###############
 
+import numpy as np
 import pandas as pd
 from shapely.geometry import Polygon
 
-from .tags import activity_classification
+from .tags import height_tags, activity_classification
 from .classification import aggregate_classification
 
 ############################################
@@ -337,6 +338,8 @@ def associate_levels(df_osm, default_height, meters_per_level):
             number_levels = 1
         return number_levels
 
+    if "height_tags" not in df_osm.columns:
+        df_osm["height_tags"] = df_osm.apply(lambda x: {}, axis=1)
     df_osm["building_levels"] = df_osm.height_tags.apply(
         lambda x: associate_level(x)
     )

@@ -38,6 +38,7 @@ import osmnx
 from osgeo import gdal, ogr, osr
 import pandas as pd
 import sh
+from shapely.geometry import Point, Polygon
 
 from urbansprawl.osm.overpass import (
     create_buildings_gdf,
@@ -65,12 +66,13 @@ from urbansprawl.population.urban_features import (
     compute_full_urban_features,
     get_training_testing_data,
     get_Y_X_features_population_data,
+    prepare_testing_data
 )
 from urbansprawl.population.downscaling import (
     train_population_downscaling_model,
     build_downscaling_cnn,
 )
-
+from urbansprawl import geometries
 
 config = ConfigParser()
 if os.path.isfile("config.ini"):
@@ -190,7 +192,6 @@ class GetBoundingBox(luigi.Task):
         Indicates the folder where the task result has to be serialized
     (default: `./data`)
     """
-
     city = luigi.Parameter()
     datapath = luigi.Parameter("./data")
 
@@ -1576,7 +1577,6 @@ class GetGPWData(luigi.Task):
     datapath : str
         Path to the data folder on the file system
     """
-
     datapath = luigi.Parameter("./data")
 
     @property
@@ -1622,7 +1622,6 @@ class UnzipData(luigi.Task):
     datasource : str
         Name of the data source, either 'insee' or 'gpw'
     """
-
     datapath = luigi.Parameter("./data")
     datasource = luigi.Parameter("insee")
 
@@ -1863,7 +1862,6 @@ class ExtractLocalGPWData(luigi.Task):
     city : str
         Place of interest
     """
-
     datapath = luigi.Parameter("./data")
     city = luigi.Parameter()
 
@@ -1879,7 +1877,7 @@ class ExtractLocalGPWData(luigi.Task):
 
     def output(self):
         filepath = os.path.join(
-            self.datapath, "gpw", "gpw_" + self.city + ".tif"
+            self.datapath, self.city, "gpw_raster.tif"
         )
         return luigi.LocalTarget(filepath)
 
@@ -1893,6 +1891,169 @@ class ExtractLocalGPWData(luigi.Task):
             os.path.join(self.datapath, "gpw", self.filename + ".tif"),
             projWin=[west, north, east, south],
         )
+
+
+class GridGPW(luigi.Task):
+    """Extract a gridded version of local GPW data, that relies on pixel
+    centroids
+
+    Each pixel of the input raster is represented by its centroid, hence the
+    corresponding population data is associated to Point in a vectorized
+    version of the GPW data, that is lighter than the Polygon rasterization
+
+    The output points are expressed in the same projection than the input data
+    (GPW), hence EPSG:4326.
+
+    Attributes
+    ----------
+    city : str
+        City of interest
+    datapath : str
+        Path of the data on the file system
+    """
+    datapath = luigi.Parameter("./data")
+    city = luigi.Parameter()
+
+    def requires(self):
+        return ExtractLocalGPWData(self.datapath, self.city)
+
+    def output(self):
+        filepath = os.path.join(
+            self.datapath, self.city, "gpw_grid.geojson"
+        )
+        return luigi.LocalTarget(filepath)
+
+    def run(self):
+        raster = gdal.Open(self.input().path)
+        raster_data = raster.ReadAsArray()
+        geotransform = raster.GetGeoTransform()
+        points = []
+        xoffset, yoffset = geotransform[1], geotransform[5]
+        for x in range(raster.RasterXSize):
+            for y in range(raster.RasterYSize):
+                p = Point(
+                    (
+                        geotransform[0] + (x+0.5) * xoffset,
+                        geotransform[3] + (y+0.5) * yoffset
+                    )
+                )
+                points.append(
+                    {"pop_count": raster_data[y, x], "geometry": p}
+                )
+        gpd.GeoDataFrame(points).to_file(self.output().path, driver="GeoJSON")
+
+
+class ExpandGrid(luigi.Task):
+    """Expand a simple grid of georeferenced points by an integer factor
+
+    For instance, with a factor 2, each point will be replaced by 2*2=4 new
+    points spread over the initial point area.
+
+    Each new point is linked with the initial point index for further
+    identification purpose.
+
+    Attributes
+    ----------
+    city : str
+        City of interest
+    datapath : str
+        Path of the data on the file system
+    factor : int
+        Expansion factor, that gives the number of points in a single cell when
+    squared
+    """
+    datapath = luigi.Parameter("./data")
+    city = luigi.Parameter()
+    factor = luigi.IntParameter(5)
+
+    def requires(self):
+        return {
+            "grid": GridGPW(self.datapath, self.city),
+            "raster": ExtractLocalGPWData(self.datapath, self.city)
+        }
+
+    def output(self):
+        os.makedirs(os.path.join(self.datapath, "inference"), exist_ok=True)
+        filepath = os.path.join(
+            self.datapath, self.city,
+            "gpw_expanded_grid_" + str(self.factor) + ".geojson"
+        )
+        return luigi.LocalTarget(filepath)
+
+    def run(self):
+        grid = gpd.read_file(self.input()["grid"].path)
+        raster = gdal.Open(self.input()["raster"].path)
+        geotransform = raster.GetGeoTransform()
+        xoffset, yoffset = geotransform[1], geotransform[5]
+        points = []
+        for idx, point in grid.iterrows():
+            new_points = geometries.expand_grid_point(
+                point["geometry"], self.factor, xoffset, yoffset
+            )
+            for newp in new_points:
+                points.append({"idx": idx, "geometry": newp})
+        gdf_points = gpd.GeoDataFrame(points)
+        gdf_points.to_file(self.output().path, driver="GeoJSON")
+
+
+class CreateInferenceGrid(luigi.Task):
+    """Create a set of georeferenced points starting from the GPW data where to
+    compute the urbansprawl features. Such data may be taken as the input for
+    the convolutional neural network that predicts population estimates.
+
+    Attributes
+    ----------
+    datapath : str
+        Path of the data on the file system
+    city : str
+        City of interest
+    factor : int
+        Expansion factor, that gives the number of points in a single cell when
+    squared
+    """
+    datapath = luigi.Parameter("./data")
+    city = luigi.Parameter()
+    factor = luigi.IntParameter(5)
+
+    def requires(self):
+        return {
+            "grid": ExpandGrid(self.datapath, self.city, self.factor),
+            "raster": ExtractLocalGPWData(self.datapath, self.city)
+         }
+
+    def output(self):
+        os.makedirs(os.path.join(self.datapath, "inference"), exist_ok=True)
+        filepath = os.path.join(
+            self.datapath, self.city,
+            "gpw_squares_" + str(self.factor) + ".geojson"
+        )
+        return luigi.LocalTarget(filepath)
+
+    def run(self):
+        grid = gpd.read_file(self.input()["grid"].path)
+        raster = gdal.Open(self.input()["raster"].path)
+        xoffset = raster.GetGeoTransform()[1] / self.factor
+        yoffset = raster.GetGeoTransform()[5] / self.factor
+        cells = []
+        for idx, point in grid.iterrows():
+            px, py = point["geometry"].x, point["geometry"].y
+            cell = Polygon(
+                ((px - 0.5 * xoffset, py - 0.5 * yoffset),
+                 (px + 0.5 * xoffset, py - 0.5 * yoffset),
+                 (px + 0.5 * xoffset, py + 0.5 * yoffset),
+                 (px - 0.5 * xoffset, py + 0.5 * yoffset),
+                 (px - 0.5 * xoffset, py - 0.5 * yoffset)
+                )
+            )
+            cells.append({"idx": point["idx"], "geometry": cell})
+        cells = gpd.GeoDataFrame(cells)
+        cells.crs = {"init": "EPSG:4326"}
+        proj_path = os.path.join(
+            self.datapath, self.city, "utm_projection.json"
+        )
+        with open(proj_path) as f:
+            cells.to_crs(json.load(f), inplace=True)
+        cells.to_file(self.output().path, driver="GeoJSON")
 
 
 class VectorizeLocalGPWData(luigi.Task):
@@ -1919,7 +2080,7 @@ class VectorizeLocalGPWData(luigi.Task):
 
     def output(self):
         filepath = os.path.join(
-            self.datapath, "gpw", "gpw_" + self.city + ".geojson"
+            self.datapath, self.city, "gpw_vectorized.geojson"
         )
         return luigi.LocalTarget(filepath)
 
@@ -1970,10 +2131,48 @@ class PlotGPWData(luigi.Task):
     geoformat = luigi.Parameter("geojson")
     date_query = luigi.DateMinuteParameter(default=date.today())
     figsize = luigi.IntParameter(8)
+    scale = luigi.ChoiceParameter(choices=["coarse", "fine"])
+    training_cities = luigi.ListParameter([])
+    validation_cities = luigi.ListParameter([])
+    default_height = luigi.IntParameter(3)
+    meters_per_level = luigi.IntParameter(3)
+    walkable_distance = luigi.IntParameter(600)
+    compute_activity_types_kd = luigi.BoolParameter()
+    weighted_kde = luigi.BoolParameter()
+    pois_weights = luigi.IntParameter(9)
+    log_weighted = luigi.BoolParameter()
+    radius_search = luigi.IntParameter(750)
+    use_median = luigi.BoolParameter()  # False
+    K_nearest = luigi.IntParameter(50)
+    batch_size = luigi.IntParameter(32)
+    epochs = luigi.IntParameter(50)
 
     def requires(self):
+        if self.scale == "coarse":
+            pop_data = VectorizeLocalGPWData(self.datapath, self.city)
+        elif self.scale == "fine":
+            pop_data = DownscaleGPWPopulationEstimates(
+                self.city,
+                self.training_cities,
+                self.validation_cities,
+                self.datapath,
+                self.geoformat,
+                self.date_query,
+                self.default_height,
+                self.meters_per_level,
+                self.walkable_distance,
+                self.compute_activity_types_kd,
+                self.weighted_kde,
+                self.pois_weights,
+                self.log_weighted,
+                self.radius_search,
+                self.use_median,
+                self.K_nearest
+            )
+        else:
+            raise ValueError("Unknown scale, enter either 'coarse' or 'fine'.")
         return {
-            "population": VectorizeLocalGPWData(self.datapath, self.city),
+            "population": pop_data,
             "graph": GetRouteGraph(
                 self.city, self.datapath, self.geoformat, self.date_query
             ),
@@ -1987,18 +2186,26 @@ class PlotGPWData(luigi.Task):
         }
 
     def output(self):
-        filepath = os.path.join(self.datapath, self.city, "gpw_population.png")
+        filepath = os.path.join(
+            self.datapath, self.city, "gpw_population_" + self.scale + ".png"
+        )
         return luigi.LocalTarget(filepath)
 
     def run(self):
-        population = gpd.read_file(self.input()["population"].path)
-        population.columns = ["pop_count", "geometry"]
-        population.crs = {"init": "epsg:4326"}
         proj_path = os.path.join(
             self.datapath, self.city, "utm_projection.json"
         )
         with open(proj_path) as f:
-            population.to_crs(json.load(f), inplace=True)
+            utm_proj = json.load(f)
+        population = gpd.read_file(self.input()["population"].path)
+        population.columns = ["pop_count", "geometry"]
+        if self.scale == "coarse":
+            population.crs = {"init": "epsg:4326"}
+            population.to_crs(utm_proj, inplace=True)
+        elif self.scale == "fine":
+            population.crs = utm_proj
+        else:
+            raise ValueError("Unknown scale, choose either 'coarse' or 'fine'")
         graph = osmnx.load_graphml(self.input()["graph"].path, folder="")
         fig, ax = osmnx.plot_graph(
             graph,
@@ -2038,7 +2245,6 @@ class ComputePopulationFeatures(luigi.Task):
     date_query : str
         Date to which the OpenStreetMap data must be recovered (format:
     AAAA-MM-DDThhmm)
-    step : int
     default_height : int
         Default building height, in meters (default: 3 meters)
     meters_per_level : int
@@ -2065,7 +2271,7 @@ class ComputePopulationFeatures(luigi.Task):
     datapath = luigi.Parameter("./data")
     geoformat = luigi.Parameter("geojson")
     date_query = luigi.DateMinuteParameter(default=date.today())
-    step = luigi.IntParameter(default=400)
+    data_source = luigi.ChoiceParameter(choices=["insee", "gpw"])
     default_height = luigi.IntParameter(3)
     meters_per_level = luigi.IntParameter(3)
     walkable_distance = luigi.IntParameter(600)
@@ -2078,6 +2284,19 @@ class ComputePopulationFeatures(luigi.Task):
     K_nearest = luigi.IntParameter(50)
 
     def requires(self):
+        if self.data_source == "insee":
+            grid_task = ExtractLocalINSEEData(
+                self.city,
+                self.datapath,
+                self.geoformat,
+                self.date_query,
+                self.default_height,
+                self.meters_per_level,
+            )
+        elif self.data_source == "gpw":
+            grid_task = CreateInferenceGrid(self.datapath, self.city)
+        else:
+            raise ValueError("Unknown data source.")
         return {
             "buildings": ComputeLandUse(
                 self.city,
@@ -2094,52 +2313,20 @@ class ComputePopulationFeatures(luigi.Task):
                 self.date_query,
                 "pois",
             ),
-            "landuse": ComputeGridLandUseMix(
-                self.city,
-                self.datapath,
-                self.geoformat,
-                self.date_query,
-                self.step,
-                self.default_height,
-                self.meters_per_level,
-                self.walkable_distance,
-                self.compute_activity_types_kd,
-                self.weighted_kde,
-                self.pois_weights,
-                self.log_weighted,
-            ),
-            "dispersion": ComputeGridDispersion(
-                self.city,
-                self.datapath,
-                self.geoformat,
-                self.date_query,
-                self.step,
-                self.default_height,
-                self.meters_per_level,
-                self.radius_search,
-                self.use_median,
-                self.K_nearest,
-            ),
-            "insee": ExtractLocalINSEEData(
-                self.city,
-                self.datapath,
-                self.geoformat,
-                self.date_query,
-                self.default_height,
-                self.meters_per_level,
-            ),
+            "grid": grid_task
         }
 
     def output(self):
         filepath = os.path.join(
-            self.datapath, self.city, "population_features.geojson"
+            self.datapath, self.city,
+            self.data_source + "_population_features.geojson"
         )
         return luigi.LocalTarget(filepath)
 
     def run(self):
         buildings = gpd.read_file(self.input()["buildings"].path)
         pois = gpd.read_file(self.input()["pois"].path)
-        insee_pop = gpd.read_file(self.input()["insee"].path)
+        gridded_pop = gpd.read_file(self.input()["grid"].path)
         proj_path = os.path.join(
             self.datapath, self.city, "utm_projection.json"
         )
@@ -2147,7 +2334,7 @@ class ComputePopulationFeatures(luigi.Task):
             utm_proj = json.load(fobj)
             buildings.crs = utm_proj
             pois.crs = utm_proj
-            insee_pop.crs = utm_proj
+            gridded_pop.crs = utm_proj
         landusemix_args = {
             "walkable_distance": self.walkable_distance,
             "compute_activity_types_kde": self.compute_activity_types_kd,
@@ -2164,8 +2351,8 @@ class ComputePopulationFeatures(luigi.Task):
             self.city,
             buildings,
             pois,
-            insee_pop,
-            "insee",
+            gridded_pop,
+            self.data_source,
             landusemix_args,
             dispersion_args,
         )
@@ -2192,7 +2379,6 @@ class SplitPopulationFeatures(luigi.Task):
     date_query : str
         Date to which the OpenStreetMap data must be recovered (format:
     AAAA-MM-DDThhmm)
-    step : int
     default_height : int
         Default building height, in meters (default: 3 meters)
     meters_per_level : int
@@ -2219,7 +2405,7 @@ class SplitPopulationFeatures(luigi.Task):
     datapath = luigi.Parameter("./data")
     geoformat = luigi.Parameter("geojson")
     date_query = luigi.DateMinuteParameter(default=date.today())
-    step = luigi.IntParameter(default=400)
+    data_source = luigi.ChoiceParameter(choices=["insee", "gpw"])
     default_height = luigi.IntParameter(3)
     meters_per_level = luigi.IntParameter(3)
     walkable_distance = luigi.IntParameter(600)
@@ -2237,7 +2423,7 @@ class SplitPopulationFeatures(luigi.Task):
             self.datapath,
             self.geoformat,
             self.date_query,
-            self.step,
+            self.data_source,
             self.default_height,
             self.meters_per_level,
             self.walkable_distance,
@@ -2251,9 +2437,17 @@ class SplitPopulationFeatures(luigi.Task):
         )
 
     def output(self):
-        filepath = os.path.join(
-            self.datapath, "training", self.city + "_X_Y.npz"
-        )
+        if self.data_source == "insee":
+            filepath = os.path.join(
+                self.datapath, "training", self.city + "_X_Y.npz"
+            )
+        elif self.data_source == "gpw":
+            filepath = os.path.join(
+                self.datapath, "inference",
+                self.city + "_" + self.data_source + "_X.npz"
+            )
+        else:
+            ValueError("Unknown data source.")
         return luigi.LocalTarget(filepath)
 
     def run(self):
@@ -2263,7 +2457,20 @@ class SplitPopulationFeatures(luigi.Task):
         )
         with open(proj_path) as fobj:
             population_features.crs = json.load(fobj)
-        get_training_testing_data(self.city, population_features)
+        if self.data_source == "insee":
+            get_training_testing_data(self.city, population_features)
+        elif self.data_source == "gpw":
+            X, columns, geometries = prepare_testing_data(
+                self.city, population_features
+            )
+            np.savez(
+                self.output().path,
+                X=X,
+                X_columns=columns,
+                geom=geometries
+            )
+        else:
+            raise ValueError("Unknown data source.")
 
 
 class TrainPopulationDownscalingModel(luigi.Task):
@@ -2289,7 +2496,6 @@ class TrainPopulationDownscalingModel(luigi.Task):
     date_query : str
         Date to which the OpenStreetMap data must be recovered (format:
     AAAA-MM-DDThhmm)
-    step : int
     default_height : int
         Default building height, in meters (default: 3 meters)
     meters_per_level : int
@@ -2322,7 +2528,6 @@ class TrainPopulationDownscalingModel(luigi.Task):
     datapath = luigi.Parameter("./data")
     geoformat = luigi.Parameter("geojson")
     date_query = luigi.DateMinuteParameter(default=date.today())
-    step = luigi.IntParameter(default=400)
     default_height = luigi.IntParameter(3)
     meters_per_level = luigi.IntParameter(3)
     walkable_distance = luigi.IntParameter(600)
@@ -2343,7 +2548,7 @@ class TrainPopulationDownscalingModel(luigi.Task):
                 self.datapath,
                 self.geoformat,
                 self.date_query,
-                self.step,
+                "insee",
                 self.default_height,
                 self.meters_per_level,
                 self.walkable_distance,
@@ -2412,7 +2617,6 @@ class InferINSEEPopulationDownscaling(luigi.Task):
     date_query : str
         Date to which the OpenStreetMap data must be recovered (format:
     AAAA-MM-DDThhmm)
-    step : int
     default_height : int
         Default building height, in meters (default: 3 meters)
     meters_per_level : int
@@ -2446,7 +2650,6 @@ class InferINSEEPopulationDownscaling(luigi.Task):
     datapath = luigi.Parameter("./data")
     geoformat = luigi.Parameter("geojson")
     date_query = luigi.DateMinuteParameter(default=date.today())
-    step = luigi.IntParameter(default=400)
     default_height = luigi.IntParameter(3)
     meters_per_level = luigi.IntParameter(3)
     walkable_distance = luigi.IntParameter(600)
@@ -2468,7 +2671,6 @@ class InferINSEEPopulationDownscaling(luigi.Task):
                 self.datapath,
                 self.geoformat,
                 self.date_query,
-                self.step,
                 self.default_height,
                 self.meters_per_level,
                 self.walkable_distance,
@@ -2485,7 +2687,7 @@ class InferINSEEPopulationDownscaling(luigi.Task):
                 self.datapath,
                 self.geoformat,
                 self.date_query,
-                self.step,
+                "insee",
                 self.default_height,
                 self.meters_per_level,
                 self.walkable_distance,
@@ -2517,34 +2719,6 @@ class InferINSEEPopulationDownscaling(luigi.Task):
         np.savez(self.output().path, y_pred=y_pred)
 
 
-class CreateInferenceGrid(luigi.Task):
-    """Create a set of georeferenced points starting from the GPW data where to
-    compute the urbansprawl features. Such data may be taken as the input for
-    the convolutional neural network that predicts population estimates.
-
-    Attributes
-    ----------
-    city : str
-        City of interest
-    """
-
-    datapath = luigi.Parameter("./data")
-    city = luigi.Parameter()
-
-    def requires(self):
-        return VectorizeLocalGPWData(self.datapath, self.city)
-
-    def output(self):
-        os.makedirs(os.path.join(self.datapath, "inference"), exist_ok=True)
-        filepath = os.path.join(
-            self.datapath, self.city, "inference_grid.geojson"
-        )
-        return luigi.LocalTarget(filepath)
-
-    def run(self):
-        pass
-
-
 class InferGPWPopulationDownscaling(luigi.Task):
     """Estimates the population density at a fine-grained scale (200m*200m) by
     starting with coarse-grained data (1km*1km).
@@ -2563,7 +2737,6 @@ class InferGPWPopulationDownscaling(luigi.Task):
     date_query : str
         Date to which the OpenStreetMap data must be recovered (format:
     AAAA-MM-DDThhmm)
-    step : int
     default_height : int
         Default building height, in meters (default: 3 meters)
     meters_per_level : int
@@ -2590,14 +2763,12 @@ class InferGPWPopulationDownscaling(luigi.Task):
     epochs : int
         Number of times the data are exploited during training process
     """
-
     city = luigi.Parameter()
     training_cities = luigi.ListParameter()
     validation_cities = luigi.ListParameter()
     datapath = luigi.Parameter("./data")
     geoformat = luigi.Parameter("geojson")
     date_query = luigi.DateMinuteParameter(default=date.today())
-    step = luigi.IntParameter(default=400)
     default_height = luigi.IntParameter(3)
     meters_per_level = luigi.IntParameter(3)
     walkable_distance = luigi.IntParameter(600)
@@ -2619,7 +2790,6 @@ class InferGPWPopulationDownscaling(luigi.Task):
                 self.datapath,
                 self.geoformat,
                 self.date_query,
-                self.step,
                 self.default_height,
                 self.meters_per_level,
                 self.walkable_distance,
@@ -2636,7 +2806,7 @@ class InferGPWPopulationDownscaling(luigi.Task):
                 self.datapath,
                 self.geoformat,
                 self.date_query,
-                self.step,
+                "gpw",
                 self.default_height,
                 self.meters_per_level,
                 self.walkable_distance,
@@ -2665,4 +2835,119 @@ class InferGPWPopulationDownscaling(luigi.Task):
         model.load_weights(self.input()["model"].path)
         data = np.load(self.input()["features"].path)
         y_pred = model.predict(data["X"])
-        np.savez(self.output().path, y_pred=y_pred)
+        np.savez(self.output().path, y_pred=y_pred, geom=data["geom"])
+
+
+class DownscaleGPWPopulationEstimates(luigi.Task):
+    """Associate the GPW coarse-grained population estimates with the predicted
+    population repartition given by the convolutional neural network
+
+    Attributes
+    ----------
+    city : str
+        City of interest
+    datapath : str
+        Indicates the folder where the task result has to be serialized
+    geoformat : str
+        Output file extension (by default: `GeoJSON`)
+    date_query : str
+        Date to which the OpenStreetMap data must be recovered (format:
+    AAAA-MM-DDThhmm)
+    default_height : int
+        Default building height, in meters (default: 3 meters)
+    meters_per_level : int
+        Default height per level, in meter (default: 3 meters)
+    walkable_distance : int
+            the bandwidth assumption for Kernel Density Estimation calculations
+    (meters)
+    compute_activity_types_kde : bool
+            determines if the densities for each activity type should be
+    computed
+    weighted_kde : bool
+            use Weighted Kernel Density Estimation or classic version
+    pois_weight : int
+            Points of interest weight equivalence with buildings (squared
+    meter)
+    log_weighted : bool
+            apply natural logarithmic function to surface weights
+    radius_search : int
+    use_median : bool
+    K_nearest : int
+    batch_size : int
+        Number of gridded sample to consider in each batch of data (must be
+    small if limited computing resources)
+    epochs : int
+        Number of times the data are exploited during training process
+    """
+    city = luigi.Parameter()
+    training_cities = luigi.ListParameter()
+    validation_cities = luigi.ListParameter()
+    datapath = luigi.Parameter("./data")
+    geoformat = luigi.Parameter("geojson")
+    date_query = luigi.DateMinuteParameter(default=date.today())
+    default_height = luigi.IntParameter(3)
+    meters_per_level = luigi.IntParameter(3)
+    walkable_distance = luigi.IntParameter(600)
+    compute_activity_types_kd = luigi.BoolParameter()
+    weighted_kde = luigi.BoolParameter()
+    pois_weights = luigi.IntParameter(9)
+    log_weighted = luigi.BoolParameter()
+    radius_search = luigi.IntParameter(750)
+    use_median = luigi.BoolParameter()  # False
+    K_nearest = luigi.IntParameter(50)
+    batch_size = luigi.IntParameter(32)
+    epochs = luigi.IntParameter(50)
+
+    def requires(self):
+        return {"predictions": InferGPWPopulationDownscaling(
+            self.city,
+            self.training_cities,
+            self.validation_cities,
+            self.datapath,
+            self.geoformat,
+            self.date_query,
+            self.default_height,
+            self.meters_per_level,
+            self.walkable_distance,
+            self.compute_activity_types_kd,
+            self.weighted_kde,
+            self.pois_weights,
+            self.log_weighted,
+            self.radius_search,
+            self.use_median,
+            self.K_nearest
+        ),
+                "grid": GridGPW(self.datapath, self.city),
+                "inference_grid": CreateInferenceGrid(self.datapath, self.city)
+                }
+    def output(self):
+        os.makedirs(os.path.join(self.datapath, "inference"), exist_ok=True)
+        filepath = os.path.join(
+            self.datapath, self.city, "gpw_pred_population.geojson"
+        )
+        return luigi.LocalTarget(filepath)
+
+    def run(self):
+        predictions = np.load(self.input()["predictions"].path)
+        proj_path = os.path.join(
+            self.datapath, self.city, "utm_projection.json"
+        )
+        with open(proj_path) as fobj:
+            utm_proj = json.load(fobj)
+        grid = gpd.read_file(self.input()["grid"].path).reset_index()
+        grid.to_crs(utm_proj, inplace=True)
+        inference_grid = gpd.read_file(self.input()["inference_grid"].path)
+        inference_grid.crs = utm_proj
+        grid.drop("geometry", axis=1, inplace=True)
+        grid.columns = ["idx", "coarse_pop"]
+        pop_grid = pd.merge(grid, inference_grid, on="idx")
+        y_preds = np.reshape(predictions["y_pred"], (-1))
+        geoms = np.reshape(predictions["geom"], (-1))
+        gdf = gpd.GeoDataFrame(
+            {"pred": y_preds, "geometry": geoms}, crs=utm_proj
+        )
+        gdf_output = gpd.sjoin(gdf, pop_grid, op="contains")
+        gdf_output["pop_count"] = gdf_output["coarse_pop"] * gdf_output["pred"]
+        gdf_output[["geometry", "pop_count"]].to_file(
+            self.output().path, driver="GeoJSON"
+        )
