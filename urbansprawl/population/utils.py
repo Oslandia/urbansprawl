@@ -243,7 +243,7 @@ def get_aggregated_squares(df_insee, step=1000.0, conserve_squares_info=False):
     else:
         index_function = index_square
 
-        # Index, for each square centroid, +- 400 meters to achieve squares of 5 by 5
+    # Index, for each square centroid, +- 400 meters to achieve squares of 5 by 5
     df_squares = df_squares.apply(
         lambda x: index_function(x, df_insee, offset_index=400), axis=1
     )

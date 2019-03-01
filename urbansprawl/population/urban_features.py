@@ -236,6 +236,8 @@ def compute_full_urban_features(
     if data_source == "insee":
         urban_features_aggregation["idINSPIRE"] = lambda x: x.head(1)
         urban_features_aggregation["pop_count"] = lambda x: x.head(1)
+    elif data_source == "gpw":
+        urban_features_aggregation["idx"] = lambda x: x.head(1)
     urban_features_aggregation["geometry"] = lambda x: x.head(1)
 
     urban_features_aggregation["m2_total_residential"] = "sum"
@@ -390,7 +392,7 @@ def get_training_testing_data(city_ref, pop_features=None):
     # Change for 'CRS' string: Coherent with squares aggregation procedure
     # (string matching)
     pop_features.loc[
-        pop_features.idINSPIRE == 0, "idINSPIRE"
+        pop_features.idINSPIRE == "0", "idINSPIRE"
     ] = "CRS"
 
     # Aggregate 5x5 squares: Get all possible aggregations
@@ -422,7 +424,7 @@ def get_training_testing_data(city_ref, pop_features=None):
         ):  # If sum of population count is 0, remove (NaN values)
             continue
 
-            # X input: Normalized urban features
+        # X input: Normalized urban features
         urban_features = square_info[
             [
                 col
@@ -520,3 +522,78 @@ def get_Y_X_features_population_data(cities_selection=None, cities_skip=None):
 
         # Assumption: All generated testing-training data contain the same X columns
     return np.concatenate(arr_Y), np.concatenate(arr_X), city_X_cols
+
+
+def prepare_testing_data(city_ref, pop_features=None):
+    """Return a X array for population downscaling inference, that contain
+    normalized urban features
+
+        X contains vectors with normalized urban features
+        X_columns columns referring to X values
+        Numpy arrays are stored locally
+
+        Parameters
+        ----------
+        city_ref : string
+                city reference name
+        pop_features : geopandas.GeoDataFrame
+                grid-cells with population count data and calculated urban features
+
+        Returns
+        ----------
+        np.array, np.array, np.array
+                Y vector, X vector, X column names vector
+        """
+    log(
+        "Calculating urban testing data/features for city: " + city_ref
+    )
+    start = time.time()
+
+    # Select columns to normalize
+    columns_to_normalise = [
+        col
+        for col in pop_features.columns
+        if "num_" in col
+        or "m2_" in col
+        or "dispersion" in col
+        or "accessibility" in col
+    ]
+    # Normalize selected columns
+    pop_features.loc[
+        :, columns_to_normalise
+    ] = pop_features.loc[:, columns_to_normalise].apply(
+        lambda x: x / x.max(), axis=0
+    )
+
+    # X values: Vector <x1,x2, ... , xn> with normalized urban features
+    X_values = []
+    geom_values = []
+
+    for idx in pop_features.idx.unique():
+        square_info = pop_features[pop_features["idx"] == idx]
+        urban_features = square_info[
+            [col for col in square_info.columns
+             if col not in ["geometry", "pop_count", "idx"]]
+        ].values
+        X_values.append(urban_features)
+        geom = square_info["geometry"]
+        geom_values.append(geom)
+
+    # Get the columns order referenced in each X vector
+    X_values_columns = pop_features[
+        [
+            col
+            for col in square_info.columns
+            if col not in ["geometry", "pop_count", "idx"]
+        ]
+    ].columns
+    X_values_columns = np.array(X_values_columns)
+    X_values = np.array(X_values)
+    geom_values = np.array(geom_values)
+
+    log(
+        "Done: urban training+validation data/features. Elapsed time (H:M:S): "
+        + time.strftime("%H:%M:%S", time.gmtime(time.time() - start))
+    )
+
+    return X_values, X_values_columns, geom_values
