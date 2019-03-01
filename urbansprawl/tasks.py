@@ -2789,4 +2789,119 @@ class InferGPWPopulationDownscaling(luigi.Task):
         model.load_weights(self.input()["model"].path)
         data = np.load(self.input()["features"].path)
         y_pred = model.predict(data["X"])
-        np.savez(self.output().path, y_pred=y_pred)
+        np.savez(self.output().path, y_pred=y_pred, geom=data["geom"])
+
+
+class DownscaleGPWPopulationEstimates(luigi.Task):
+    """Associate the GPW coarse-grained population estimates with the predicted
+    population repartition given by the convolutional neural network
+
+    Attributes
+    ----------
+    city : str
+        City of interest
+    datapath : str
+        Indicates the folder where the task result has to be serialized
+    geoformat : str
+        Output file extension (by default: `GeoJSON`)
+    date_query : str
+        Date to which the OpenStreetMap data must be recovered (format:
+    AAAA-MM-DDThhmm)
+    default_height : int
+        Default building height, in meters (default: 3 meters)
+    meters_per_level : int
+        Default height per level, in meter (default: 3 meters)
+    walkable_distance : int
+            the bandwidth assumption for Kernel Density Estimation calculations
+    (meters)
+    compute_activity_types_kde : bool
+            determines if the densities for each activity type should be
+    computed
+    weighted_kde : bool
+            use Weighted Kernel Density Estimation or classic version
+    pois_weight : int
+            Points of interest weight equivalence with buildings (squared
+    meter)
+    log_weighted : bool
+            apply natural logarithmic function to surface weights
+    radius_search : int
+    use_median : bool
+    K_nearest : int
+    batch_size : int
+        Number of gridded sample to consider in each batch of data (must be
+    small if limited computing resources)
+    epochs : int
+        Number of times the data are exploited during training process
+    """
+    city = luigi.Parameter()
+    training_cities = luigi.ListParameter()
+    validation_cities = luigi.ListParameter()
+    datapath = luigi.Parameter("./data")
+    geoformat = luigi.Parameter("geojson")
+    date_query = luigi.DateMinuteParameter(default=date.today())
+    default_height = luigi.IntParameter(3)
+    meters_per_level = luigi.IntParameter(3)
+    walkable_distance = luigi.IntParameter(600)
+    compute_activity_types_kd = luigi.BoolParameter()
+    weighted_kde = luigi.BoolParameter()
+    pois_weights = luigi.IntParameter(9)
+    log_weighted = luigi.BoolParameter()
+    radius_search = luigi.IntParameter(750)
+    use_median = luigi.BoolParameter()  # False
+    K_nearest = luigi.IntParameter(50)
+    batch_size = luigi.IntParameter(32)
+    epochs = luigi.IntParameter(50)
+
+    def requires(self):
+        return {"predictions": InferGPWPopulationDownscaling(
+            self.city,
+            self.training_cities,
+            self.validation_cities,
+            self.datapath,
+            self.geoformat,
+            self.date_query,
+            self.default_height,
+            self.meters_per_level,
+            self.walkable_distance,
+            self.compute_activity_types_kd,
+            self.weighted_kde,
+            self.pois_weights,
+            self.log_weighted,
+            self.radius_search,
+            self.use_median,
+            self.K_nearest
+        ),
+                "grid": GridGPW(self.datapath, self.city),
+                "inference_grid": CreateInferenceGrid(self.datapath, self.city)
+                }
+    def output(self):
+        os.makedirs(os.path.join(self.datapath, "inference"), exist_ok=True)
+        filepath = os.path.join(
+            self.datapath, self.city, "gpw_pred_population.geojson"
+        )
+        return luigi.LocalTarget(filepath)
+
+    def run(self):
+        predictions = np.load(self.input()["predictions"].path)
+        proj_path = os.path.join(
+            self.datapath, self.city, "utm_projection.json"
+        )
+        with open(proj_path) as fobj:
+            utm_proj = json.load(fobj)
+        grid = gpd.read_file(self.input()["grid"].path).reset_index()
+        grid.to_crs(utm_proj, inplace=True)
+        inference_grid = gpd.read_file(self.input()["inference_grid"].path)
+        inference_grid.crs = utm_proj
+        grid.drop("geometry", axis=1, inplace=True)
+        grid.columns = ["idx", "coarse_pop"]
+        pop_grid = pd.merge(grid, inference_grid, on="idx")
+        y_preds = np.reshape(predictions["y_pred"], (-1))
+        geoms = np.reshape(predictions["geom"], (-1))
+        gdf = gpd.GeoDataFrame(
+            {"pred": y_preds, "geometry": geoms}, crs=utm_proj
+        )
+        gdf_output = gpd.sjoin(gdf, pop_grid, op="contains")
+        gdf_output["pop_count"] = gdf_output["coarse_pop"] * gdf_output["pred"]
+        gdf_output[["geometry", "pop_count"]].to_file(
+            self.output().path, driver="GeoJSON"
+        )
