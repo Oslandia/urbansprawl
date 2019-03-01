@@ -2131,10 +2131,48 @@ class PlotGPWData(luigi.Task):
     geoformat = luigi.Parameter("geojson")
     date_query = luigi.DateMinuteParameter(default=date.today())
     figsize = luigi.IntParameter(8)
+    scale = luigi.ChoiceParameter(choices=["coarse", "fine"])
+    training_cities = luigi.ListParameter([])
+    validation_cities = luigi.ListParameter([])
+    default_height = luigi.IntParameter(3)
+    meters_per_level = luigi.IntParameter(3)
+    walkable_distance = luigi.IntParameter(600)
+    compute_activity_types_kd = luigi.BoolParameter()
+    weighted_kde = luigi.BoolParameter()
+    pois_weights = luigi.IntParameter(9)
+    log_weighted = luigi.BoolParameter()
+    radius_search = luigi.IntParameter(750)
+    use_median = luigi.BoolParameter()  # False
+    K_nearest = luigi.IntParameter(50)
+    batch_size = luigi.IntParameter(32)
+    epochs = luigi.IntParameter(50)
 
     def requires(self):
+        if self.scale == "coarse":
+            pop_data = VectorizeLocalGPWData(self.datapath, self.city)
+        elif self.scale == "fine":
+            pop_data = DownscaleGPWPopulationEstimates(
+                self.city,
+                self.training_cities,
+                self.validation_cities,
+                self.datapath,
+                self.geoformat,
+                self.date_query,
+                self.default_height,
+                self.meters_per_level,
+                self.walkable_distance,
+                self.compute_activity_types_kd,
+                self.weighted_kde,
+                self.pois_weights,
+                self.log_weighted,
+                self.radius_search,
+                self.use_median,
+                self.K_nearest
+            )
+        else:
+            raise ValueError("Unknown scale, enter either 'coarse' or 'fine'.")
         return {
-            "population": VectorizeLocalGPWData(self.datapath, self.city),
+            "population": pop_data,
             "graph": GetRouteGraph(
                 self.city, self.datapath, self.geoformat, self.date_query
             ),
@@ -2148,18 +2186,26 @@ class PlotGPWData(luigi.Task):
         }
 
     def output(self):
-        filepath = os.path.join(self.datapath, self.city, "gpw_population.png")
+        filepath = os.path.join(
+            self.datapath, self.city, "gpw_population_" + self.scale + ".png"
+        )
         return luigi.LocalTarget(filepath)
 
     def run(self):
-        population = gpd.read_file(self.input()["population"].path)
-        population.columns = ["pop_count", "geometry"]
-        population.crs = {"init": "epsg:4326"}
         proj_path = os.path.join(
             self.datapath, self.city, "utm_projection.json"
         )
         with open(proj_path) as f:
-            population.to_crs(json.load(f), inplace=True)
+            utm_proj = json.load(f)
+        population = gpd.read_file(self.input()["population"].path)
+        population.columns = ["pop_count", "geometry"]
+        if self.scale == "coarse":
+            population.crs = {"init": "epsg:4326"}
+            population.to_crs(utm_proj, inplace=True)
+        elif self.scale == "fine":
+            population.crs = utm_proj
+        else:
+            raise ValueError("Unknown scale, choose either 'coarse' or 'fine'")
         graph = osmnx.load_graphml(self.input()["graph"].path, folder="")
         fig, ax = osmnx.plot_graph(
             graph,
