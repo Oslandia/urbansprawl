@@ -35,7 +35,7 @@ def compute_grid_accessibility(
         "fixed_distance_max_travel_distance": 2000,
         "fixed_distance_max_num_activities": 250,
         "fixed_activities_min_number": 20,
-        "fixed_activities_max_travel_distance": 5000,
+        "fixed_activities_max_travel_distance": 5000
     },
 ):
     """

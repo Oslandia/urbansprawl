@@ -34,7 +34,7 @@ def compute_full_urban_features(
     city_ref,
     df_osm_built=None,
     df_osm_pois=None,
-    df_insee=None,
+    pop_grid=None,
     data_source=None,
     landusemix_args={
         "walkable_distance": 600,
@@ -51,7 +51,8 @@ def compute_full_urban_features(
     kwargs={"max_dispersion": 15},
 ):
     """
-        Computes a set of urban features for each square where population count data exists
+        Computes a set of urban features for each square where population count
+    data exists
 
         Parameters
         ----------
@@ -61,10 +62,12 @@ def compute_full_urban_features(
                 input buildings
         df_osm_pois : geopandas.GeoDataFrame
                 input points of interest
-        df_insee : geopandas.GeoDataFrame
-                grid-cells with population count where urban features will be calculated
+        pop_grid : geopandas.GeoDataFrame
+                grid-cells with population count where urban features will be
+        calculated
         data_source : str
-                define the type of population data for its retrieval in case it was stored
+                define the type of population data for its retrieval in case it
+        was stored
         kwargs : dict
                 keyword arguments to guide the process
 
@@ -79,26 +82,33 @@ def compute_full_urban_features(
         get_population_urban_features_filename(city_ref, data_source)
     ):
         log(
-            "Urban features from population gridded data exist for input city: "
+            "Urban features from population gridded data exist for city: "
             + city_ref
         )
         # Read from GeoJSON (default projection coordinates)
-        df_insee_urban_features_4326 = gpd.read_file(
+        pop_features_4326 = gpd.read_file(
             get_population_urban_features_filename(city_ref, data_source)
         )
         # Project to UTM coordinates
-        return ox.project_gdf(df_insee_urban_features_4326)
+        return ox.project_gdf(pop_features_4326)
 
         # Required arguments
     assert df_osm_built is not None
     assert df_osm_pois is not None
-    assert df_insee is not None
+    assert pop_grid is not None
 
     # Get population count data with filled empty squares (null population)
-    df_insee_urban_features = get_population_df_filled_empty_squares(df_insee)
+    if data_source == "insee":
+        pop_features = get_population_df_filled_empty_squares(
+            pop_grid
+        )
+    elif data_source == "gpw":
+        pop_features = pop_grid
+    else:
+        raise ValueError("Unknown data source.")
     # Set crs
-    crs_proj = df_insee.crs
-    df_insee_urban_features.crs = crs_proj
+    crs_proj = pop_grid.crs
+    pop_features.crs = crs_proj
 
     ##################
     # Urban features
@@ -111,13 +121,13 @@ def compute_full_urban_features(
     df_osm_built["geom_building"] = df_osm_built["geometry"]
 
     # Spatial join: grid-cell i - building j for all intersections
-    df_insee_urban_features = gpd.sjoin(
-        df_insee_urban_features, df_osm_built, op="intersects", how="left"
+    pop_features = gpd.sjoin(
+        pop_features, df_osm_built, op="intersects", how="left"
     )
 
     # When a grid-cell i does not intersect any building: NaN values
-    null_idx = df_insee_urban_features.loc[
-        df_insee_urban_features["geom_building"].isnull()
+    null_idx = pop_features.loc[
+        pop_features["geom_building"].isnull()
     ].index
     # Replace NaN for urban features calculation
     min_polygon = Polygon(
@@ -127,15 +137,15 @@ def compute_full_urban_features(
             (np.finfo(float).eps, np.finfo(float).eps),
         ]
     )
-    df_insee_urban_features.loc[
+    pop_features.loc[
         null_idx, "geom_building"
-    ] = df_insee_urban_features.loc[null_idx, "geom_building"].apply(
+    ] = pop_features.loc[null_idx, "geom_building"].apply(
         lambda x: min_polygon
     )
-    df_insee_urban_features.loc[null_idx, "landuses_m2"] = len(null_idx) * [
+    pop_features.loc[null_idx, "landuses_m2"] = len(null_idx) * [
         {"residential": 0, "activity": 0}
     ]
-    df_insee_urban_features.loc[null_idx, "building_levels"] = len(
+    pop_features.loc[null_idx, "building_levels"] = len(
         null_idx
     ) * [0]
 
@@ -143,88 +153,89 @@ def compute_full_urban_features(
 
     # Apply percentage of building presence within square:
     # 1 if fully contained, 0.5 if half the building contained, ...
-    df_insee_urban_features["building_ratio"] = df_insee_urban_features.apply(
+    pop_features["building_ratio"] = pop_features.apply(
         lambda x: x.geom_building.intersection(x.geometry).area
         / x.geom_building.area,
         axis=1,
     )
 
-    df_insee_urban_features[
+    pop_features[
         "m2_total_residential"
-    ] = df_insee_urban_features.apply(
+    ] = pop_features.apply(
         lambda x: x.building_ratio * x.landuses_m2["residential"], axis=1
     )
-    df_insee_urban_features[
+    pop_features[
         "m2_total_activity"
-    ] = df_insee_urban_features.apply(
+    ] = pop_features.apply(
         lambda x: x.building_ratio * x.landuses_m2["activity"], axis=1
     )
 
-    df_insee_urban_features["m2_footprint_residential"] = 0
-    df_insee_urban_features.loc[
-        df_insee_urban_features.classification.isin(["residential"]),
+    pop_features["m2_footprint_residential"] = 0
+    pop_features.loc[
+        pop_features.classification.isin(["residential"]),
         "m2_footprint_residential",
-    ] = df_insee_urban_features.loc[
-        df_insee_urban_features.classification.isin(["residential"])
+    ] = pop_features.loc[
+        pop_features.classification.isin(["residential"])
     ].apply(
         lambda x: x.building_ratio * x.geom_building.area, axis=1
     )
-    df_insee_urban_features["m2_footprint_activity"] = 0
-    df_insee_urban_features.loc[
-        df_insee_urban_features.classification.isin(["activity"]),
+    pop_features["m2_footprint_activity"] = 0
+    pop_features.loc[
+        pop_features.classification.isin(["activity"]),
         "m2_footprint_activity",
-    ] = df_insee_urban_features.loc[
-        df_insee_urban_features.classification.isin(["activity"])
+    ] = pop_features.loc[
+        pop_features.classification.isin(["activity"])
     ].apply(
         lambda x: x.building_ratio * x.geom_building.area, axis=1
     )
-    df_insee_urban_features["m2_footprint_mixed"] = 0
-    df_insee_urban_features.loc[
-        df_insee_urban_features.classification.isin(["mixed"]),
+    pop_features["m2_footprint_mixed"] = 0
+    pop_features.loc[
+        pop_features.classification.isin(["mixed"]),
         "m2_footprint_mixed",
-    ] = df_insee_urban_features.loc[
-        df_insee_urban_features.classification.isin(["mixed"])
+    ] = pop_features.loc[
+        pop_features.classification.isin(["mixed"])
     ].apply(
         lambda x: x.building_ratio * x.geom_building.area, axis=1
     )
 
-    df_insee_urban_features["num_built_activity"] = 0
-    df_insee_urban_features.loc[
-        df_insee_urban_features.classification.isin(["activity"]),
+    pop_features["num_built_activity"] = 0
+    pop_features.loc[
+        pop_features.classification.isin(["activity"]),
         "num_built_activity",
-    ] = df_insee_urban_features.loc[
-        df_insee_urban_features.classification.isin(["activity"])
+    ] = pop_features.loc[
+        pop_features.classification.isin(["activity"])
     ].building_ratio
-    df_insee_urban_features["num_built_residential"] = 0
-    df_insee_urban_features.loc[
-        df_insee_urban_features.classification.isin(["residential"]),
+    pop_features["num_built_residential"] = 0
+    pop_features.loc[
+        pop_features.classification.isin(["residential"]),
         "num_built_residential",
-    ] = df_insee_urban_features.loc[
-        df_insee_urban_features.classification.isin(["residential"])
+    ] = pop_features.loc[
+        pop_features.classification.isin(["residential"])
     ].building_ratio
-    df_insee_urban_features["num_built_mixed"] = 0
-    df_insee_urban_features.loc[
-        df_insee_urban_features.classification.isin(["mixed"]),
+    pop_features["num_built_mixed"] = 0
+    pop_features.loc[
+        pop_features.classification.isin(["mixed"]),
         "num_built_mixed",
-    ] = df_insee_urban_features.loc[
-        df_insee_urban_features.classification.isin(["mixed"])
+    ] = pop_features.loc[
+        pop_features.classification.isin(["mixed"])
     ].building_ratio
 
-    df_insee_urban_features["num_levels"] = df_insee_urban_features.apply(
+    pop_features["num_levels"] = pop_features.apply(
         lambda x: x.building_ratio * x.building_levels, axis=1
     )
-    df_insee_urban_features["num_buildings"] = df_insee_urban_features[
+    pop_features["num_buildings"] = pop_features[
         "building_ratio"
     ]
 
-    df_insee_urban_features["built_up_m2"] = df_insee_urban_features.apply(
+    pop_features["built_up_m2"] = pop_features.apply(
         lambda x: x.geom_building.area * x.building_ratio, axis=1
     )
 
     # Urban features aggregation functions
     urban_features_aggregation = {}
-    urban_features_aggregation["idINSPIRE"] = lambda x: x.head(1)
-    urban_features_aggregation["pop_count"] = lambda x: x.head(1)
+    if data_source == "insee":
+        urban_features_aggregation["idINSPIRE"] = lambda x: x.head(1)
+        urban_features_aggregation["pop_count"] = lambda x: x.head(1)
     urban_features_aggregation["geometry"] = lambda x: x.head(1)
 
     urban_features_aggregation["m2_total_residential"] = "sum"
@@ -244,34 +255,34 @@ def compute_full_urban_features(
     urban_features_aggregation["built_up_m2"] = "sum"
 
     # Apply aggregate functions
-    df_insee_urban_features = df_insee_urban_features.groupby(
-        df_insee_urban_features.index
+    pop_features = pop_features.groupby(
+        pop_features.index
     ).agg(urban_features_aggregation)
 
     # Calculate built up relation (relative to the area of the grid-cell geometry)
-    df_insee_urban_features[
+    pop_features[
         "built_up_relation"
-    ] = df_insee_urban_features.apply(
+    ] = pop_features.apply(
         lambda x: x.built_up_m2 / x.geometry.area, axis=1
     )
-    df_insee_urban_features.drop("built_up_m2", axis=1, inplace=True)
+    pop_features.drop("built_up_m2", axis=1, inplace=True)
 
     # To geopandas.GeoDataFrame and set crs
-    df_insee_urban_features = gpd.GeoDataFrame(df_insee_urban_features)
-    df_insee_urban_features.crs = crs_proj
+    pop_features = gpd.GeoDataFrame(pop_features)
+    pop_features.crs = crs_proj
 
     # POIs
     df_osm_pois_selection = df_osm_pois[
         df_osm_pois.classification.isin(["activity", "mixed"])
     ]
     gpd_intersection_pois = gpd.sjoin(
-        df_insee_urban_features,
+        pop_features,
         df_osm_pois_selection,
         op="intersects",
         how="left",
     )
     # Number of activity/mixed POIs
-    df_insee_urban_features[
+    pop_features[
         "num_activity_pois"
     ] = gpd_intersection_pois.groupby(gpd_intersection_pois.index).agg(
         {"osm_id": "count"}
@@ -280,39 +291,31 @@ def compute_full_urban_features(
     ##################
     # Sprawling indices
     ##################
-    df_insee_urban_features[
-        "geometry_squares"
-    ] = df_insee_urban_features.geometry
-    df_insee_urban_features[
-        "geometry"
-    ] = df_insee_urban_features.geometry.centroid
+    pop_features["geometry_squares"] = pop_features.geometry
+    pop_features["geometry"] = pop_features.geometry.centroid
 
     # Compute land uses mix + densities estimation
     compute_grid_landusemix(
-        df_insee_urban_features, df_osm_built, df_osm_pois, landusemix_args
+        pop_features, df_osm_built, df_osm_pois, landusemix_args
     )
     # Dispersion indices
-    compute_grid_dispersion(
-        df_insee_urban_features, df_osm_built, dispersion_args
-    )
+    compute_grid_dispersion(pop_features, df_osm_built, dispersion_args)
+
+    # Set back original geometries
+    pop_features["geometry"] = pop_features.geometry_squares
+    pop_features.drop("geometry_squares", axis=1, inplace=True)
 
     if kwargs.get("max_dispersion"):  # Set max bounds for dispersion values
-        df_insee_urban_features.loc[
-            df_insee_urban_features.dispersion > kwargs.get("max_dispersion"),
+        pop_features.loc[
+            pop_features.dispersion > kwargs.get("max_dispersion"),
             "dispersion",
         ] = kwargs.get("max_dispersion")
 
-        # Set back original geometries
-    df_insee_urban_features[
-        "geometry"
-    ] = df_insee_urban_features.geometry_squares
-    df_insee_urban_features.drop("geometry_squares", axis=1, inplace=True)
-
     # Fill NaN sprawl indices with 0
-    df_insee_urban_features.fillna(0, inplace=True)
+    pop_features.fillna(0, inplace=True)
 
     # Save to GeoJSON file (no projection conserved, then use EPSG 4326)
-    ox.project_gdf(df_insee_urban_features, to_latlong=True).to_file(
+    ox.project_gdf(pop_features, to_latlong=True).to_file(
         get_population_urban_features_filename(city_ref, data_source),
         driver="GeoJSON",
     )
@@ -326,11 +329,10 @@ def compute_full_urban_features(
             elapsed_time % 60,
         )
     )
+    return pop_features
 
-    return df_insee_urban_features
 
-
-def get_training_testing_data(city_ref, df_insee_urban_features=None):
+def get_training_testing_data(city_ref, pop_features=None):
     """
         Returns the Y and X arrays for training/testing population downscaling estimates.
 
@@ -343,7 +345,7 @@ def get_training_testing_data(city_ref, df_insee_urban_features=None):
         ----------
         city_ref : string
                 city reference name
-        df_insee_urban_features : geopandas.GeoDataFrame
+        pop_features : geopandas.GeoDataFrame
                 grid-cells with population count data and calculated urban features
 
         Returns
@@ -371,30 +373,30 @@ def get_training_testing_data(city_ref, df_insee_urban_features=None):
     # Select columns to normalize
     columns_to_normalise = [
         col
-        for col in df_insee_urban_features.columns
+        for col in pop_features.columns
         if "num_" in col
         or "m2_" in col
         or "dispersion" in col
         or "accessibility" in col
     ]
     # Normalize selected columns
-    df_insee_urban_features.loc[
+    pop_features.loc[
         :, columns_to_normalise
-    ] = df_insee_urban_features.loc[:, columns_to_normalise].apply(
+    ] = pop_features.loc[:, columns_to_normalise].apply(
         lambda x: x / x.max(), axis=0
     )
 
     # By default, idINSPIRE for created squares (0 population count) is 0:
     # Change for 'CRS' string: Coherent with squares aggregation procedure
     # (string matching)
-    df_insee_urban_features.loc[
-        df_insee_urban_features.idINSPIRE == 0, "idINSPIRE"
+    pop_features.loc[
+        pop_features.idINSPIRE == 0, "idINSPIRE"
     ] = "CRS"
 
     # Aggregate 5x5 squares: Get all possible aggregations
     # (step of 200 meters = length of individual square)
-    aggregated_df_insee_urban_features = get_aggregated_squares(
-        ox.project_gdf(df_insee_urban_features, to_crs="+init=epsg:3035"),
+    aggregated_pop_features = get_aggregated_squares(
+        ox.project_gdf(pop_features, to_crs="+init=epsg:3035"),
         step=200.0,
         conserve_squares_info=True,
     )
@@ -406,10 +408,10 @@ def get_training_testing_data(city_ref, df_insee_urban_features=None):
     Y_values = []
 
     # For each <Indices> combination, create a X and Y vector
-    for idx in aggregated_df_insee_urban_features.indices:
+    for idx in aggregated_pop_features.indices:
         # Extract the urban features in the given 'indices' order
         # (Fill to 0 for non-existent squares)
-        square_info = df_insee_urban_features.reindex(idx).fillna(0)
+        square_info = pop_features.reindex(idx).fillna(0)
         # Y input (Ground truth): Population densities
         population_densities = (
             square_info["pop_count"] / square_info["pop_count"].sum()
@@ -434,7 +436,7 @@ def get_training_testing_data(city_ref, df_insee_urban_features=None):
         Y_values.append(population_densities)
 
         # Get the columns order referenced in each X vector
-    X_values_columns = df_insee_urban_features[
+    X_values_columns = pop_features[
         [
             col
             for col in square_info.columns

@@ -64,7 +64,7 @@ def compute_grid_landusemix(
         "compute_activity_types_kde": True,
         "weighted_kde": True,
         "pois_weight": 9,
-        "log_weighted": True,
+        "log_weighted": True
     },
 ):
     """
