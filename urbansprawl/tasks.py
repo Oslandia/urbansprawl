@@ -284,7 +284,8 @@ class GetData(luigi.Task):
                     (~gdf["building:part"].isin(BUILDING_PARTS_TO_FILTER))
                     & (~gdf["building:part"].isnull())
                 ]
-            gdf.drop(["nodes"], axis=1, inplace=True)
+            if "nodes" in gdf.columns:
+                gdf.drop(["nodes"], axis=1, inplace=True)
             gdf["osm_id"] = gdf.index
             gdf.reset_index(drop=True, inplace=True)
         elif self.table == "pois":

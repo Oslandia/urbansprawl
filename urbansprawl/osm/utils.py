@@ -171,7 +171,7 @@ def sanity_check_height_tags(df_osm):
 
     def sanity_check(value):
         # Sanity check for height tags (sometimes wrongly-tagged)
-        if not ((value is np.nan) or (value is None)):  # Non-null value
+        if not ((value is np.nan) or (value is None) or (value == "")):  # Non-null value
             try:  # Can be read as float?
                 return float(value)
             except ValueError:
