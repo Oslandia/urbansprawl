@@ -23,36 +23,35 @@ at the fine level of individual households by using open urban data
 
 # Installation
 
-The urbansprawl framework works with Python 2+3.
+The urbansprawl framework works with Python3.
 
 ## Using pip
 
-- Install the ```spatialindex``` library. Using apt-get (Linux):
+- Install the required libraries via `apt-get` (on Ubuntu):
 ```sh
-sudo apt-get install libspatialindex-dev
-```
-- Install the dependencies using *pip*
-```sh
-pip install osmnx scikit-learn psutil tensorflow keras jupyter
+sudo apt-get install libspatialindex-dev libgdal-dev python3-gdal
 ```
 
-## Using Miniconda
-
-- Install [Miniconda](https://conda.io/miniconda.html)
-- [Optional] Create a [conda virtual environment](http://conda.pydata.org/docs/using/envs.html) 
+- Create a virtual environment and install the package:
 ```
-conda create --name urbansprawl-env
-source activate urbansprawl-env
-```
-
-- Install the dependencies using the conda package manager and the conda-forge channel
-```sh
-conda install -c conda-forge libspatialindex osmnx scikit-learn psutil tensorflow keras jupyter
+$ git clone https://github.com/Oslandia/urbansprawl
+$ cd urbansprawl
+$ virtualenv -p /usr/bin/python3 venv
+$ source venv/bin/activate
+(venv)$ python setup.py install
 ```
 
-## Using Anaconda
+- Add the relevant `GDAL` Python bindings (*i.e.* whose version corresponds to
+your `GDAL`) to the virtual environment:
+```
+(venv)$ pip install --global-option=build_ext --global-option="-I/usr/include/gdal" GDAL==`gdal-config --version`
+```
 
-- Install [Anaconda](https://www.anaconda.com/download)
+## Using Miniconda or Anaconda
+
+*:warning: these solutions are not maintained any more!*
+
+- Install [Miniconda](https://conda.io/miniconda.html) or [Anaconda](https://www.anaconda.com/download) (up to you)
 - [Optional] Create a [conda virtual environment](http://conda.pydata.org/docs/using/envs.html) 
 ```
 conda create --name urbansprawl-env
@@ -62,7 +61,7 @@ source activate urbansprawl-env
 - Install the dependencies using the conda package manager and the conda-forge channel
 ```sh
 conda update -c conda-forge --all
-conda install -c conda-forge osmnx scikit-learn psutil tensorflow keras jupyter
+conda install -c conda-forge libspatialindex osmnx scikit-learn psutil tensorflow keras jupyter
 ```
 
 ## Usage
