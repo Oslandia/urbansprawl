@@ -25,7 +25,6 @@ from datetime import date, datetime as dt
 import json
 import os
 import requests
-import sys
 import zipfile
 
 import geopandas as gpd
@@ -78,7 +77,7 @@ config = ConfigParser()
 if os.path.isfile("config.ini"):
     config.read("config.ini")
 else:
-    sys.exit(1)
+    raise FileNotFoundError("There is no 'config.ini' in the project folder!")
 
 
 # Columns of interest corresponding to OSM keys
@@ -1600,8 +1599,8 @@ class GetGPWData(luigi.Task):
     def run(self):
         with requests.Session() as session:
             r1 = session.request("get", self.url)  # Handle redirection
-            login = config.get("credentials", "login")
-            password = config.get("credentials", "pw")
+            login = config.get("gpw-credentials", "login")
+            password = config.get("gpw-credentials", "pw")
             resp = requests.get(r1.url, auth=(login, password))
             resp.raise_for_status()
             with self.output().open("w") as fobj:
